@@ -1,0 +1,80 @@
+@page
+@using System.Text.Json
+@model Web.Dashboard.Pages.StatisticsModel
+@{
+    ViewData["Title"] = "Statistics";
+    var heartLabels = Model.Statistics.HeartRates.Select(point => point.Timestamp.ToLocalTime().ToString("HH:mm")).ToArray();
+    var heartValues = Model.Statistics.HeartRates.Select(point => point.HeartRate).ToArray();
+    var roomLabels = Model.Statistics.AlertsByRoom.Select(point => $"Room {point.RoomNumber}").ToArray();
+    var alertValues = Model.Statistics.AlertsByRoom.Select(point => point.Count).ToArray();
+}
+
+<section class="dashboard-heading">
+    <div>
+        <p class="eyebrow">Last 24 hours</p>
+        <h1>Clinical Statistics</h1>
+    </div>
+    <div class="temperature-kpi">
+        <span>Avg Temp</span>
+        <strong>@(Model.Statistics.AverageTemperature == 0 ? "--" : Model.Statistics.AverageTemperature.ToString("0.0"))C</strong>
+    </div>
+</section>
+
+<section class="analytics-grid">
+    <div class="analytics-panel analytics-panel--wide">
+        <h2>Heart rate trend</h2>
+        <canvas id="heartRateChart" height="120"></canvas>
+    </div>
+    <div class="analytics-panel">
+        <h2>Alerts by room</h2>
+        <canvas id="alertsChart" height="190"></canvas>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        const heartLabels = @Html.Raw(JsonSerializer.Serialize(heartLabels));
+        const heartValues = @Html.Raw(JsonSerializer.Serialize(heartValues));
+        const roomLabels = @Html.Raw(JsonSerializer.Serialize(roomLabels));
+        const alertValues = @Html.Raw(JsonSerializer.Serialize(alertValues));
+
+        new Chart(document.getElementById("heartRateChart"), {
+            type: "line",
+            data: {
+                labels: heartLabels,
+                datasets: [{
+                    label: "BPM",
+                    data: heartValues,
+                    borderColor: "#0f766e",
+                    backgroundColor: "rgba(15, 118, 110, .12)",
+                    fill: true,
+                    tension: .35,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { suggestedMin: 50, suggestedMax: 160 } }
+            }
+        });
+
+        new Chart(document.getElementById("alertsChart"), {
+            type: "bar",
+            data: {
+                labels: roomLabels,
+                datasets: [{
+                    label: "Alerts",
+                    data: alertValues,
+                    backgroundColor: "#dc2626",
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+            }
+        });
+    </script>
+}

@@ -1,0 +1,111 @@
+@page
+@model Web.Dashboard.Pages.RoomsModel
+@{
+    ViewData["Title"] = "Rooms";
+}
+
+<section class="dashboard-heading">
+    <div>
+        <p class="eyebrow">Live ward telemetry</p>
+        <h1>Smart Health Rooms</h1>
+    </div>
+    <div id="connectionStatus" class="status-pill status-waiting">Connecting</div>
+</section>
+
+<section class="rooms-grid" aria-label="Patient rooms">
+    @foreach (var room in Model.Rooms)
+    {
+        <article class="room-card" id="room-@room.RoomNumber" data-room="@room.RoomNumber">
+            <div class="room-card__top">
+                <div>
+                    <span class="room-label">Room @room.RoomNumber</span>
+                    <h2>@room.PatientName</h2>
+                </div>
+                <span class="room-state">Stable</span>
+            </div>
+
+            <div class="vitals-row">
+                <div>
+                    <span class="metric-label">BPM</span>
+                    <strong class="metric-value heart-rate">--</strong>
+                </div>
+                <div>
+                    <span class="metric-label">SpO2</span>
+                    <strong class="metric-value spo2">--</strong>
+                </div>
+                <div>
+                    <span class="metric-label">Temp</span>
+                    <strong class="metric-value temperature">--</strong>
+                </div>
+            </div>
+
+            <div class="emergency-banner">EMERGENCY</div>
+            <time class="last-updated">Waiting for telemetry</time>
+        </article>
+    }
+</section>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script>
+        const statusEl = document.getElementById("connectionStatus");
+        const roomTimers = new Map();
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/healthHub")
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("vitalsReceived", reading => {
+            const card = document.querySelector(`[data-room="${reading.roomNumber}"]`);
+            if (!card) return;
+
+            card.querySelector(".heart-rate").textContent = reading.heartRate;
+            card.querySelector(".spo2").textContent = `${reading.spo2}%`;
+            card.querySelector(".temperature").textContent = `${Number(reading.temperature).toFixed(1)}C`;
+            card.querySelector(".last-updated").textContent = new Date(reading.recordedAt).toLocaleTimeString();
+
+            if (reading.heartRate <= 120 && reading.spo2 >= 92 && !card.classList.contains("room-card--alert")) {
+                card.querySelector(".room-state").textContent = "Stable";
+            }
+        });
+
+        connection.on("alertReceived", alert => {
+            const card = document.querySelector(`[data-room="${alert.roomNumber}"]`);
+            if (!card) return;
+
+            card.classList.add("room-card--alert");
+            card.querySelector(".room-state").textContent = "Critical";
+            card.querySelector(".heart-rate").textContent = alert.heartRate;
+            card.querySelector(".spo2").textContent = `${alert.spo2}%`;
+            card.querySelector(".temperature").textContent = `${Number(alert.temperature).toFixed(1)}C`;
+            card.querySelector(".last-updated").textContent = alert.message;
+
+            clearTimeout(roomTimers.get(alert.roomNumber));
+            roomTimers.set(alert.roomNumber, setTimeout(() => {
+                card.classList.remove("room-card--alert");
+                card.querySelector(".room-state").textContent = "Recovering";
+            }, 15000));
+        });
+
+        connection.onreconnecting(() => {
+            statusEl.textContent = "Reconnecting";
+            statusEl.className = "status-pill status-waiting";
+        });
+
+        connection.onreconnected(() => {
+            statusEl.textContent = "Live";
+            statusEl.className = "status-pill status-live";
+        });
+
+        connection.start()
+            .then(() => {
+                statusEl.textContent = "Live";
+                statusEl.className = "status-pill status-live";
+            })
+            .catch(() => {
+                statusEl.textContent = "Offline";
+                statusEl.className = "status-pill status-offline";
+            });
+    </script>
+}

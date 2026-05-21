@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Simulator.App/Simulator.App.csproj" />
+  <Project Path="Streaming.App/Streaming.App.csproj" />
+  <Project Path="Web.Dashboard/Web.Dashboard.csproj" />
+</Solution>
