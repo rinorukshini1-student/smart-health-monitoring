@@ -155,13 +155,13 @@ static async Task ProcessReadingAsync(
 
 public sealed record KafkaOptions
 {
-    public string BootstrapServers { get; init; } = "localhost:9092";
+    public string BootstrapServers { get; init; } = "178.105.181.143:9092";
     public string Topic { get; init; } = "health-vitals";
 }
 
 public sealed record CassandraOptions
 {
-    public string ContactPoint { get; init; } = "localhost";
+    public string ContactPoint { get; init; } = "178.105.181.143";
     public int Port { get; init; } = 9042;
     public string Keyspace { get; init; } = "smart_health";
 }

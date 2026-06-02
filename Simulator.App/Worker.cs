@@ -85,7 +85,7 @@ public class Worker : BackgroundService
 
 public sealed record KafkaOptions
 {
-    public string BootstrapServers { get; init; } = "localhost:9092";
+    public string BootstrapServers { get; init; } = "178.105.181.143:9092";
     public string Topic { get; init; } = "health-vitals";
 }
 
