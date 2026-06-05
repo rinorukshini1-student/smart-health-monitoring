@@ -1,4 +1,8 @@
-﻿<!DOCTYPE html>
+﻿@{
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
+    string Active(string page) => string.Equals(currentPage, page, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
+}
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -9,41 +13,59 @@
     <link rel="stylesheet" href="~/Web.Dashboard.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark app-navbar border-bottom mb-4">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Rooms">Smart Health</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-page="/Rooms">Rooms</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-page="/Statistics">Statistics</a>
-                        </li>
-                    </ul>
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar__brand">
+                <span class="brand-mark">+</span>
+                <div>
+                    <strong>Smart Health</strong>
+                    <small>IoT Monitoring</small>
                 </div>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - Smart Health Monitoring
+            <nav class="sidebar__nav">
+                <p class="nav-group">Overview</p>
+                <a class="nav-link @Active("/Index")" asp-page="/Index"><span class="ic">▣</span> Dashboard</a>
+                <a class="nav-link @Active("/LiveMonitoring")" asp-page="/LiveMonitoring"><span class="ic">◉</span> Live Monitoring</a>
+                <a class="nav-link @Active("/Rooms")" asp-page="/Rooms"><span class="ic">▦</span> Rooms</a>
+
+                <p class="nav-group">Analytics</p>
+                <a class="nav-link @Active("/Analytics")" asp-page="/Analytics"><span class="ic">📈</span> Analytics</a>
+                <a class="nav-link @Active("/AiPredictions")" asp-page="/AiPredictions"><span class="ic">🧠</span> AI Predictions</a>
+
+                <p class="nav-group">Operations</p>
+                <a class="nav-link @Active("/Alerts")" asp-page="/Alerts"><span class="ic">⚠</span> Alert Center</a>
+                <a class="nav-link @Active("/SystemHealth")" asp-page="/SystemHealth"><span class="ic">⚙</span> System Health</a>
+            </nav>
+
+            <div class="sidebar__footer">
+                <span class="dot" id="globalConn"></span>
+                <span id="globalConnText">Connecting…</span>
+            </div>
+        </aside>
+
+        <div class="app-main">
+            <header class="topbar">
+                <button class="topbar__toggle" id="sidebarToggle" aria-label="Toggle navigation">☰</button>
+                <div class="topbar__title">
+                    <h1>@ViewData["Title"]</h1>
+                </div>
+                <div class="topbar__status">
+                    <span class="live-pill" id="livePill"><span class="live-dot"></span> Live Monitoring</span>
+                </div>
+            </header>
+
+            <main role="main" class="content">
+                @RenderBody()
+            </main>
         </div>
-    </footer>
+    </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="~/js/dashboard.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)

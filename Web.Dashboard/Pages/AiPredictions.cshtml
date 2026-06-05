@@ -1,0 +1,14 @@
+@page
+@model AiPredictionsModel
+@{
+    ViewData["Title"] = "AI Predictions";
+}
+
+<!-- Vue 3 application mount point (see wwwroot/js/ai-predictions.js) -->
+<div id="aiApp"></div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+    <script src="~/js/ai-predictions.js" asp-append-version="true"></script>
+}

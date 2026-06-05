@@ -1,8 +1,8 @@
-using Cassandra;
 using Confluent.Kafka;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Spark.Sql;
+using System.Diagnostics;
 using System.Text.Json;
 using static Microsoft.Spark.Sql.Functions;
 
@@ -24,9 +24,30 @@ await using var hubConnection = new HubConnectionBuilder()
 await StartSignalRWithRetryAsync(hubConnection, signalROptions.HubUrl);
 Console.WriteLine($"Connected to SignalR hub: {signalROptions.HubUrl}");
 
+// Shared processing context (window aggregator + live metrics) for both run modes.
+var aggregator = new WindowAggregator();
+var metrics = new MetricsCollector();
+
+// Periodically push a metrics snapshot to the System Health dashboard page.
+_ = Task.Run(async () =>
+{
+    while (true)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        try
+        {
+            await hubConnection.InvokeAsync("PublishMetrics", metrics.Snapshot());
+        }
+        catch
+        {
+            // Hub may be temporarily unavailable; metrics are best-effort.
+        }
+    }
+});
+
 if (!args.Contains("--spark", StringComparer.OrdinalIgnoreCase))
 {
-    await RunDirectKafkaModeAsync(kafka, hubConnection, healthRepository);
+    await RunDirectKafkaModeAsync(kafka, hubConnection, healthRepository, aggregator, metrics);
     return;
 }
 
@@ -40,9 +61,13 @@ var schema = """
     patientId STRING,
     patientName STRING,
     roomNumber STRING,
+    age INT,
     heartRate INT,
     spo2 INT,
     temperature DOUBLE,
+    systolicBp INT,
+    diastolicBp INT,
+    respiratoryRate INT,
     recordedAt TIMESTAMP
     """;
 
@@ -56,22 +81,50 @@ var rawKafka = spark
 
 var vitals = rawKafka
     .Select(FromJson(Col("value").Cast("string"), schema).Alias("data"))
-    .Select("data.*");
+    .Select("data.*")
+    // Validation/filtering stage: drop malformed or physiologically impossible readings.
+    .Filter("patientId IS NOT NULL AND heartRate > 0 AND heartRate < 260 AND spo2 > 0 AND spo2 <= 100");
 
-var query = vitals
+// Per-reading processing: persistence, alerts and AI risk scoring.
+var perReadingQuery = vitals
     .WriteStream()
     .ForeachBatch((batch, batchId) =>
     {
-        ProcessBatchAsync(batch, batchId, hubConnection, healthRepository).GetAwaiter().GetResult();
+        ProcessBatchAsync(batch, batchId, hubConnection, healthRepository, aggregator, metrics).GetAwaiter().GetResult();
     })
     .Start();
 
-query.AwaitTermination();
+// Spark sliding-window aggregation (5-minute window, 1-minute slide) stored in Cassandra.
+var windowed = vitals
+    .WithWatermark("recordedAt", "10 minutes")
+    .GroupBy(Window(Col("recordedAt"), "5 minutes", "1 minute"), Col("roomNumber"), Col("patientId"))
+    .Agg(
+        Avg("heartRate").Alias("avg_heart_rate"),
+        Avg("spo2").Alias("avg_spo2"),
+        Avg("temperature").Alias("avg_temperature"),
+        Avg("systolicBp").Alias("avg_systolic"),
+        Avg("diastolicBp").Alias("avg_diastolic"),
+        Avg("respiratoryRate").Alias("avg_respiratory"),
+        Count(Lit(1)).Alias("sample_count"));
+
+var windowQuery = windowed
+    .WriteStream()
+    .OutputMode("update")
+    .ForeachBatch((batch, batchId) =>
+    {
+        StoreWindowBatchAsync(batch, healthRepository, metrics).GetAwaiter().GetResult();
+    })
+    .Start();
+
+perReadingQuery.AwaitTermination();
+windowQuery.AwaitTermination();
 
 static async Task RunDirectKafkaModeAsync(
     KafkaOptions kafka,
     HubConnection hubConnection,
-    CassandraHealthRepository healthRepository)
+    CassandraHealthRepository healthRepository,
+    WindowAggregator aggregator,
+    MetricsCollector metrics)
 {
     var config = new ConsumerConfig
     {
@@ -90,14 +143,20 @@ static async Task RunDirectKafkaModeAsync(
         var result = consumer.Consume();
         var reading = JsonSerializer.Deserialize<VitalReading>(result.Message.Value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        if (reading is null)
+        if (reading is null || !IsValid(reading))
         {
             continue;
         }
 
-        await ProcessReadingAsync(reading, hubConnection, healthRepository, "Direct");
+        await ProcessReadingAsync(reading, hubConnection, healthRepository, aggregator, metrics, "Direct");
     }
 }
+
+// Basic validation/filtering stage (matches the Spark .Filter above).
+static bool IsValid(VitalReading r) =>
+    !string.IsNullOrWhiteSpace(r.PatientId)
+    && r.HeartRate is > 0 and < 260
+    && r.Spo2 is > 0 and <= 100;
 
 static async Task StartSignalRWithRetryAsync(HubConnection hubConnection, string hubUrl)
 {
@@ -122,12 +181,45 @@ static async Task ProcessBatchAsync(
     DataFrame batch,
     long batchId,
     HubConnection hubConnection,
-    CassandraHealthRepository healthRepository)
+    CassandraHealthRepository healthRepository,
+    WindowAggregator aggregator,
+    MetricsCollector metrics)
 {
+    var stopwatch = Stopwatch.StartNew();
+    var count = 0;
+
     foreach (var row in batch.Collect())
     {
         var reading = VitalReading.From(row);
-        await ProcessReadingAsync(reading, hubConnection, healthRepository, $"Batch {batchId}");
+        await ProcessReadingAsync(reading, hubConnection, healthRepository, aggregator, metrics, $"Batch {batchId}");
+        count++;
+    }
+
+    stopwatch.Stop();
+    metrics.RecordBatch(count, stopwatch.Elapsed.TotalMilliseconds);
+}
+
+static async Task StoreWindowBatchAsync(DataFrame batch, CassandraHealthRepository healthRepository, MetricsCollector metrics)
+{
+    foreach (var row in batch.Collect())
+    {
+        var window = row.GetAs<Row>("window");
+        var windowStart = window.GetAs<DateTime>("start");
+
+        var aggregate = new WindowAggregate(
+            row.GetAs<string>("patientId"),
+            row.GetAs<string>("roomNumber"),
+            new DateTimeOffset(DateTime.SpecifyKind(windowStart, DateTimeKind.Utc)),
+            row.GetAs<double>("avg_heart_rate"),
+            row.GetAs<double>("avg_spo2"),
+            row.GetAs<double>("avg_temperature"),
+            row.GetAs<double>("avg_systolic"),
+            row.GetAs<double>("avg_diastolic"),
+            row.GetAs<double>("avg_respiratory"),
+            (int)row.GetAs<long>("sample_count"));
+
+        await healthRepository.InsertWindowAsync(aggregate);
+        metrics.RecordWindow();
     }
 }
 
@@ -135,228 +227,37 @@ static async Task ProcessReadingAsync(
     VitalReading reading,
     HubConnection hubConnection,
     CassandraHealthRepository healthRepository,
+    WindowAggregator aggregator,
+    MetricsCollector metrics,
     string source)
 {
+    // 1. Persist the raw reading and keep the patient registry up to date.
     await healthRepository.InsertVitalAsync(reading);
+    await healthRepository.UpsertPatientAsync(reading);
     await hubConnection.InvokeAsync("PublishVitals", reading);
+    metrics.RecordMessage();
+
+    // 2. Sliding-window aggregation (direct-mode path).
+    var window = aggregator.Add(reading);
+    await healthRepository.InsertWindowAsync(window);
+    metrics.RecordWindow();
+
+    // 3. AI risk scoring.
+    var risk = RiskScoringEngine.Assess(reading);
+    await healthRepository.InsertRiskAsync(risk);
+    await hubConnection.InvokeAsync("PublishRisk", risk);
+
+    // 4. Alert rule evaluation - one alert per breached threshold.
+    var alerts = AlertRules.Evaluate(reading);
+    foreach (var alert in alerts)
+    {
+        await healthRepository.InsertAlertAsync(alert);
+        await hubConnection.InvokeAsync("PublishAlert", alert);
+        metrics.RecordAlert();
+        Console.WriteLine($"{source}: {alert.Severity} {alert.AlertType} for {alert.PatientId} - {alert.Message}");
+    }
+
     Console.WriteLine(
-        $"Vitals sent: room {reading.RoomNumber}, HR {reading.HeartRate}, SpO2 {reading.Spo2}, Temp {reading.Temperature:0.0}C");
-
-    var alert = AlertMessage.FromCriticalReading(reading);
-    if (alert is null)
-    {
-        return;
-    }
-
-    await healthRepository.InsertAlertAsync(alert);
-    await hubConnection.InvokeAsync("PublishAlert", alert);
-    Console.WriteLine($"{source}: emergency in room {alert.RoomNumber}: {alert.Message}");
-}
-
-public sealed record KafkaOptions
-{
-    public string BootstrapServers { get; init; } = "178.105.181.143:9092";
-    public string Topic { get; init; } = "health-vitals";
-}
-
-public sealed record CassandraOptions
-{
-    public string ContactPoint { get; init; } = "178.105.181.143";
-    public int Port { get; init; } = 9042;
-    public string Keyspace { get; init; } = "smart_health";
-}
-
-public sealed record SignalROptions
-{
-    public string HubUrl { get; init; } = "http://localhost:5084/healthHub";
-}
-
-public sealed record VitalReading(
-    string PatientId,
-    string PatientName,
-    string RoomNumber,
-    int HeartRate,
-    int Spo2,
-    double Temperature,
-    DateTimeOffset RecordedAt)
-{
-    public static VitalReading From(Microsoft.Spark.Sql.Row row)
-    {
-        var recordedAt = row.GetAs<DateTime>("recordedAt");
-        return new VitalReading(
-            row.GetAs<string>("patientId"),
-            row.GetAs<string>("patientName"),
-            row.GetAs<string>("roomNumber"),
-            row.GetAs<int>("heartRate"),
-            row.GetAs<int>("spo2"),
-            row.GetAs<double>("temperature"),
-            new DateTimeOffset(DateTime.SpecifyKind(recordedAt, DateTimeKind.Utc)));
-    }
-}
-
-public sealed record AlertMessage(
-    Guid AlertId,
-    string PatientId,
-    string RoomNumber,
-    string Severity,
-    string Message,
-    int HeartRate,
-    int Spo2,
-    double Temperature,
-    DateTimeOffset RecordedAt)
-{
-    public static AlertMessage? FromCriticalReading(VitalReading reading)
-    {
-        var reasons = new List<string>();
-
-        if (reading.HeartRate > 120)
-        {
-            reasons.Add($"HR {reading.HeartRate} BPM");
-        }
-
-        if (reading.Spo2 < 92)
-        {
-            reasons.Add($"SpO2 {reading.Spo2}%");
-        }
-
-        if (reasons.Count == 0)
-        {
-            return null;
-        }
-
-        return new AlertMessage(
-            Guid.NewGuid(),
-            reading.PatientId,
-            reading.RoomNumber,
-            "CRITICAL",
-            $"EMERGENCY: {string.Join(", ", reasons)}",
-            reading.HeartRate,
-            reading.Spo2,
-            reading.Temperature,
-            reading.RecordedAt);
-    }
-}
-
-public sealed class CassandraHealthRepository : IAsyncDisposable
-{
-    private readonly ICluster _cluster;
-    private readonly Cassandra.ISession _session;
-    private readonly PreparedStatement _insertVital;
-    private readonly PreparedStatement _insertAlert;
-
-    private CassandraHealthRepository(
-        ICluster cluster,
-        Cassandra.ISession session,
-        PreparedStatement insertVital,
-        PreparedStatement insertAlert)
-    {
-        _cluster = cluster;
-        _session = session;
-        _insertVital = insertVital;
-        _insertAlert = insertAlert;
-    }
-
-    public static async Task<CassandraHealthRepository> CreateAsync(CassandraOptions options)
-    {
-        var cluster = Cluster.Builder()
-            .AddContactPoint(options.ContactPoint)
-            .WithPort(options.Port)
-            .Build();
-
-        var systemSession = await cluster.ConnectAsync();
-        await systemSession.ExecuteAsync(new SimpleStatement(
-            $"CREATE KEYSPACE IF NOT EXISTS {options.Keyspace} WITH replication = {{ 'class': 'SimpleStrategy', 'replication_factor': 1 }}"));
-        await systemSession.ShutdownAsync();
-
-        var session = await cluster.ConnectAsync(options.Keyspace);
-        await session.ExecuteAsync(new SimpleStatement("""
-            CREATE TABLE IF NOT EXISTS patient_vitals (
-              room_number text,
-              vital_day date,
-              recorded_at timestamp,
-              patient_id text,
-              patient_name text,
-              heart_rate int,
-              spo2 int,
-              temperature double,
-              PRIMARY KEY ((room_number, vital_day), recorded_at, patient_id)
-            ) WITH CLUSTERING ORDER BY (recorded_at DESC, patient_id ASC)
-            """));
-
-        await session.ExecuteAsync(new SimpleStatement("""
-            CREATE TABLE IF NOT EXISTS alerts_log (
-              room_number text,
-              alert_day date,
-              recorded_at timestamp,
-              alert_id uuid,
-              patient_id text,
-              severity text,
-              message text,
-              heart_rate int,
-              spo2 int,
-              temperature double,
-              PRIMARY KEY ((room_number, alert_day), recorded_at, alert_id)
-            ) WITH CLUSTERING ORDER BY (recorded_at DESC, alert_id ASC)
-            """));
-
-        var insertVital = await session.PrepareAsync("""
-            INSERT INTO patient_vitals
-            (room_number, vital_day, recorded_at, patient_id, patient_name, heart_rate, spo2, temperature)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """);
-
-        var insertAlert = await session.PrepareAsync("""
-            INSERT INTO alerts_log
-            (room_number, alert_day, recorded_at, alert_id, patient_id, severity, message, heart_rate, spo2, temperature)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """);
-
-        return new CassandraHealthRepository(cluster, session, insertVital, insertAlert);
-    }
-
-    public async Task InsertVitalAsync(VitalReading reading)
-    {
-        var vitalDay = ToCassandraDate(reading.RecordedAt);
-        var statement = _insertVital.Bind(
-            reading.RoomNumber,
-            vitalDay,
-            reading.RecordedAt.UtcDateTime,
-            reading.PatientId,
-            reading.PatientName,
-            reading.HeartRate,
-            reading.Spo2,
-            reading.Temperature);
-
-        await _session.ExecuteAsync(statement);
-    }
-
-    public async Task InsertAlertAsync(AlertMessage alert)
-    {
-        var alertDay = ToCassandraDate(alert.RecordedAt);
-        var statement = _insertAlert.Bind(
-            alert.RoomNumber,
-            alertDay,
-            alert.RecordedAt.UtcDateTime,
-            alert.AlertId,
-            alert.PatientId,
-            alert.Severity,
-            alert.Message,
-            alert.HeartRate,
-            alert.Spo2,
-            alert.Temperature);
-
-        await _session.ExecuteAsync(statement);
-    }
-
-    private static LocalDate ToCassandraDate(DateTimeOffset timestamp)
-    {
-        var date = timestamp.UtcDateTime.Date;
-        return new LocalDate(date.Year, date.Month, date.Day);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _session.ShutdownAsync();
-        _cluster.Dispose();
-    }
+        $"Vitals stored: room {reading.RoomNumber}, HR {reading.HeartRate}, SpO2 {reading.Spo2}, Temp {reading.Temperature:0.0}C, " +
+        $"BP {reading.SystolicBp}/{reading.DiastolicBp}, RR {reading.RespiratoryRate} | Risk {risk.Score} ({risk.Category})");
 }

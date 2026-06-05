@@ -1,0 +1,136 @@
+@page
+@model PatientDetailsModel
+@{
+    ViewData["Title"] = "Patient Details";
+}
+
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Patient profile</p>
+        <h2 id="pName">Patient</h2>
+        <p class="sub" id="pMeta">—</p>
+    </div>
+    <div style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap;">
+        <select id="patientSelect"></select>
+        <div class="seg" id="rangeSeg">
+            <button data-range="hour">Last Hour</button>
+            <button data-range="day" class="active">Last 24h</button>
+            <button data-range="week">Last 7 Days</button>
+        </div>
+    </div>
+</div>
+
+<!-- Vue 3 AI heart-attack risk panel (see wwwroot/js/patient-risk.js) -->
+<div id="riskApp"></div>
+
+<div class="kpi-grid">
+    <div class="kpi tone-purple"><div class="kpi__icon">🧠</div><div class="kpi__label">Rule-based Risk (live vitals)</div><div class="kpi__value" id="riskScore">--</div><div class="kpi__hint" id="riskCat">—</div></div>
+    <div class="kpi tone-teal"><div class="kpi__icon">❤</div><div class="kpi__label">Heart Rate (min/avg/max)</div><div class="kpi__value" id="hrAvg">--</div><div class="kpi__hint" id="hrMM">—</div></div>
+    <div class="kpi tone-amber"><div class="kpi__icon">🌡</div><div class="kpi__label">Temperature</div><div class="kpi__value" id="tempAvg">--</div><div class="kpi__hint" id="tempMM">—</div></div>
+    <div class="kpi tone-blue"><div class="kpi__icon">💨</div><div class="kpi__label">SpO2</div><div class="kpi__value" id="spo2Avg">--</div><div class="kpi__hint" id="spo2MM">—</div></div>
+</div>
+
+<div class="panel" style="margin-bottom:1.2rem;">
+    <div class="panel-head"><h3>Risk Factors</h3></div>
+    <div id="riskFactors"><span class="factor-chip">No assessment yet</span></div>
+</div>
+
+<div class="grid-2">
+    <div class="panel"><div class="panel-head"><h3>Heart Rate</h3></div><div class="chart-box sm"><canvas id="hrChart"></canvas></div></div>
+    <div class="panel"><div class="panel-head"><h3>Temperature</h3></div><div class="chart-box sm"><canvas id="tempChart"></canvas></div></div>
+</div>
+<div class="grid-2">
+    <div class="panel"><div class="panel-head"><h3>SpO2</h3></div><div class="chart-box sm"><canvas id="spo2Chart"></canvas></div></div>
+    <div class="panel"><div class="panel-head"><h3>Blood Pressure</h3></div><div class="chart-box sm"><canvas id="bpChart"></canvas></div></div>
+</div>
+<div class="panel">
+    <div class="panel-head"><h3>AI Risk Trend</h3></div><div class="chart-box sm"><canvas id="riskChart"></canvas></div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+    <script src="~/js/patient-risk.js" asp-append-version="true"></script>
+    <script>
+        const SH = window.SmartHealth;
+        let patientId = "@Model.PatientId";
+        let range = "day";
+
+        const hrChart = SH.lineChart(document.getElementById("hrChart"), "BPM", "#0f766e", "rgba(15,118,110,.12)");
+        const tempChart = SH.lineChart(document.getElementById("tempChart"), "°C", "#d97706", "rgba(217,119,6,.12)");
+        const spo2Chart = SH.lineChart(document.getElementById("spo2Chart"), "%", "#2563eb", "rgba(37,99,235,.12)");
+        const bpChart = new Chart(document.getElementById("bpChart"), {
+            type: "line",
+            data: { labels: [], datasets: [
+                { label: "Systolic", data: [], borderColor: "#dc2626", pointRadius: 0, tension: .35, borderWidth: 2 },
+                { label: "Diastolic", data: [], borderColor: "#7c3aed", pointRadius: 0, tension: .35, borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } } } }
+        });
+        const riskChart = SH.lineChart(document.getElementById("riskChart"), "Risk", "#7c3aed", "rgba(124,58,237,.12)");
+
+        function labels(ts) { return ts.map(t => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })); }
+
+        async function load() {
+            if (window.updateRiskPanel) window.updateRiskPanel(patientId);
+            try {
+                const d = await (await fetch(`/api/patients/${patientId}?range=${range}`)).json();
+                document.getElementById("pName").textContent = d.patientName + " (" + d.patientId + ")";
+                document.getElementById("pMeta").textContent = `Room ${d.roomNumber} · Age ${d.age}`;
+
+                const lbl = labels(d.timestamps);
+                SH.setSeries(hrChart, lbl, d.heartRates);
+                SH.setSeries(tempChart, lbl, d.temperatures);
+                SH.setSeries(spo2Chart, lbl, d.spo2s);
+                bpChart.data.labels = lbl; bpChart.data.datasets[0].data = d.systolics; bpChart.data.datasets[1].data = d.diastolics; bpChart.update();
+                SH.setSeries(riskChart, labels(d.riskHistory.map(r => r.timestamp)), d.riskHistory.map(r => r.score));
+
+                document.getElementById("riskScore").textContent = d.currentRiskScore;
+                document.getElementById("riskCat").textContent = d.currentRiskCategory;
+                document.getElementById("hrAvg").textContent = d.heartRateStat.average;
+                document.getElementById("hrMM").textContent = `min ${d.heartRateStat.min} · max ${d.heartRateStat.max}`;
+                document.getElementById("tempAvg").textContent = d.temperatureStat.average + "°C";
+                document.getElementById("tempMM").textContent = `min ${d.temperatureStat.min} · max ${d.temperatureStat.max}`;
+                document.getElementById("spo2Avg").textContent = d.spo2Stat.average + "%";
+                document.getElementById("spo2MM").textContent = `min ${d.spo2Stat.min} · max ${d.spo2Stat.max}`;
+                document.getElementById("riskFactors").innerHTML = (d.riskFactors || "").split(";")
+                    .filter(x => x.trim()).map(f => `<span class="factor-chip">${f.trim()}</span>`).join("") || '<span class="factor-chip">All vitals normal</span>';
+            } catch (e) { }
+        }
+
+        async function loadPatients() {
+            try {
+                const data = await (await fetch("/api/live")).json();
+                const sel = document.getElementById("patientSelect");
+                sel.innerHTML = data.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber))
+                    .map(p => `<option value="${p.patientId}" ${p.patientId === patientId ? "selected" : ""}>${p.patientId} · ${p.patientName} (Room ${p.roomNumber})</option>`).join("");
+                sel.addEventListener("change", () => { patientId = sel.value; load(); });
+            } catch (e) { }
+        }
+
+        document.querySelectorAll("#rangeSeg button").forEach(b => b.addEventListener("click", () => {
+            document.querySelectorAll("#rangeSeg button").forEach(x => x.classList.remove("active"));
+            b.classList.add("active"); range = b.dataset.range; load();
+        }));
+
+        // Append live points for the selected patient.
+        SH.onVitals(v => {
+            if (v.patientId !== patientId) return;
+            const t = new Date(v.recordedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            SH.pushPoint(hrChart, t, v.heartRate, 240);
+            SH.pushPoint(tempChart, t, v.temperature, 240);
+            SH.pushPoint(spo2Chart, t, v.spo2, 240);
+            bpChart.data.labels.push(t); bpChart.data.datasets[0].data.push(v.systolicBp); bpChart.data.datasets[1].data.push(v.diastolicBp);
+            if (bpChart.data.labels.length > 240) { bpChart.data.labels.shift(); bpChart.data.datasets[0].data.shift(); bpChart.data.datasets[1].data.shift(); }
+            bpChart.update();
+        });
+        SH.onRisk(r => {
+            if (r.patientId !== patientId) return;
+            document.getElementById("riskScore").textContent = r.score;
+            document.getElementById("riskCat").textContent = r.category;
+        });
+
+        loadPatients();
+        load();
+        setInterval(load, 15000);
+    </script>
+}

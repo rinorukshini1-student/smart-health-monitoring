@@ -1,17 +1,78 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Smart Health";
+    ViewData["Title"] = "Dashboard";
 }
 
-<section class="dashboard-heading">
+<div class="page-head">
     <div>
-        <p class="eyebrow">Hospital operations</p>
-        <h1>Smart Health Monitoring</h1>
+        <p class="eyebrow">Smart Health Monitoring</p>
+        <h2>Operations Overview</h2>
+        <p class="sub">Real-time patient telemetry, AI risk scoring and clinical alerts.</p>
     </div>
-    <a class="btn btn-primary" asp-page="/Rooms">Open Rooms</a>
-</section>
+</div>
 
-<section class="intro-band">
-    <h2>Real-time patient vitals, emergency alerts, and Cassandra-backed clinical statistics.</h2>
-</section>
+<div class="kpi-grid">
+    <div class="kpi tone-blue"><div class="kpi__icon">👥</div><div class="kpi__label">Total Patients</div><div class="kpi__value" id="kpiTotal">@Model.Overview.TotalPatients</div><div class="kpi__hint">Registered sensors</div></div>
+    <div class="kpi tone-teal"><div class="kpi__icon">◉</div><div class="kpi__label">Active Patients</div><div class="kpi__value" id="kpiActive">@Model.Overview.ActivePatients</div><div class="kpi__hint">Reporting &lt; 2 min</div></div>
+    <div class="kpi tone-red"><div class="kpi__icon">⚠</div><div class="kpi__label">Critical Alerts</div><div class="kpi__value" id="kpiCritical">@Model.Overview.CriticalAlerts</div><div class="kpi__hint">Last 24 hours</div></div>
+    <div class="kpi tone-teal"><div class="kpi__icon">❤</div><div class="kpi__label">Avg Heart Rate</div><div class="kpi__value" id="kpiHr">@Model.Overview.AverageHeartRate</div><div class="kpi__hint">BPM</div></div>
+    <div class="kpi tone-amber"><div class="kpi__icon">🌡</div><div class="kpi__label">Avg Temperature</div><div class="kpi__value" id="kpiTemp">@Model.Overview.AverageTemperature</div><div class="kpi__hint">°C</div></div>
+    <div class="kpi tone-blue"><div class="kpi__icon">💨</div><div class="kpi__label">Avg SpO2</div><div class="kpi__value" id="kpiSpo2">@Model.Overview.AverageSpo2</div><div class="kpi__hint">%</div></div>
+    <div class="kpi tone-purple"><div class="kpi__icon">🧠</div><div class="kpi__label">High-Risk Patients</div><div class="kpi__value" id="kpiRisk">@Model.Overview.HighRiskPatients</div><div class="kpi__hint">AI assessment</div></div>
+</div>
+
+<div class="grid-2">
+    <div class="panel"><div class="panel-head"><h3>Messages Processed / Minute</h3></div><div class="chart-box sm"><canvas id="msgChart"></canvas></div></div>
+    <div class="panel"><div class="panel-head"><h3>Alerts / Hour</h3></div><div class="chart-box sm"><canvas id="alertChart"></canvas></div></div>
+</div>
+
+<div class="grid-2">
+    <div class="panel"><div class="panel-head"><h3>Average Heart Rate Trend</h3></div><div class="chart-box sm"><canvas id="hrChart"></canvas></div></div>
+    <div class="panel"><div class="panel-head"><h3>Average Temperature Trend</h3></div><div class="chart-box sm"><canvas id="tempChart"></canvas></div></div>
+</div>
+
+<div class="grid-2">
+    <div class="panel"><div class="panel-head"><h3>Latest Sensor Readings</h3></div><div class="events" id="recentReadings"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Latest Alerts</h3></div><div class="events" id="recentAlerts"></div></div>
+</div>
+
+@section Scripts {
+    <script>
+        const SH = window.SmartHealth;
+        const msgChart = SH.barChart(document.getElementById("msgChart"), "Messages", "#2563eb");
+        const alertChart = SH.barChart(document.getElementById("alertChart"), "Alerts", "#dc2626");
+        const hrChart = SH.lineChart(document.getElementById("hrChart"), "BPM", "#0f766e", "rgba(15,118,110,.12)");
+        const tempChart = SH.lineChart(document.getElementById("tempChart"), "°C", "#d97706", "rgba(217,119,6,.12)");
+
+        function eventHtml(e) {
+            const kind = e.kind === "alert" ? "alert" : "reading";
+            const icon = kind === "alert" ? "⚠" : "❤";
+            return `<div class="event ${kind}"><div class="e-icon">${icon}</div><div class="e-body">
+                <div class="e-title">${e.text}</div>
+                <div class="e-meta">${e.patientId} · Room ${e.roomNumber} · ${SH.fmtTime(e.timestamp)}</div></div></div>`;
+        }
+
+        function render(o) {
+            kpiTotal.textContent = o.totalPatients; kpiActive.textContent = o.activePatients;
+            kpiCritical.textContent = o.criticalAlerts; kpiHr.textContent = o.averageHeartRate;
+            kpiTemp.textContent = o.averageTemperature; kpiSpo2.textContent = o.averageSpo2;
+            kpiRisk.textContent = o.highRiskPatients;
+
+            SH.setSeries(msgChart, o.messagesPerMinute.map(p => p.label), o.messagesPerMinute.map(p => p.value));
+            SH.setSeries(alertChart, o.alertsPerHour.map(p => p.label), o.alertsPerHour.map(p => p.value));
+            SH.setSeries(hrChart, o.heartRateTrend.map(p => p.label), o.heartRateTrend.map(p => p.value));
+            SH.setSeries(tempChart, o.temperatureTrend.map(p => p.label), o.temperatureTrend.map(p => p.value));
+
+            document.getElementById("recentReadings").innerHTML = o.recentReadings.map(eventHtml).join("") || '<p class="empty">Waiting for data…</p>';
+            document.getElementById("recentAlerts").innerHTML = o.recentAlerts.map(eventHtml).join("") || '<p class="empty">No alerts yet</p>';
+        }
+
+        async function refresh() {
+            try { render(await (await fetch("/api/overview")).json()); } catch (e) { }
+        }
+
+        refresh();
+        setInterval(refresh, 5000);
+    </script>
+}

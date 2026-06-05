@@ -1,19 +1,25 @@
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Web.Dashboard.Data;
+using Web.Dashboard.Models;
 
 namespace Web.Dashboard.Pages;
 
 public class IndexModel : PageModel
 {
-    private readonly ILogger<IndexModel> _logger;
+    private readonly IHealthStatsRepository _repository;
 
-    public IndexModel(ILogger<IndexModel> logger)
+    public IndexModel(IHealthStatsRepository repository)
     {
-        _logger = logger;
+        _repository = repository;
     }
 
-    public void OnGet()
-    {
+    public OverviewDto Overview { get; private set; } = new(0, 0, 0, 0, 0, 0, 0,
+        Array.Empty<TimeSeriesPoint>(), Array.Empty<TimeSeriesPoint>(),
+        Array.Empty<TimeSeriesPoint>(), Array.Empty<TimeSeriesPoint>(),
+        Array.Empty<RecentEvent>(), Array.Empty<RecentEvent>());
 
+    public async Task OnGetAsync(CancellationToken cancellationToken)
+    {
+        Overview = await _repository.GetOverviewAsync(cancellationToken);
     }
 }

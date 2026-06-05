@@ -1,0 +1,63 @@
+@page
+@model AnalyticsModel
+@{
+    ViewData["Title"] = "Analytics";
+}
+
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Spark Streaming aggregations</p>
+        <h2>Analytics</h2>
+        <p class="sub">Windowed averages (5-min window / 1-min slide) and AI risk indicators.</p>
+    </div>
+    <div class="kpi tone-teal" style="min-width:160px;"><div class="kpi__label">Windows Computed</div><div class="kpi__value" id="totalWindows">0</div><div class="kpi__hint">Last 6h</div></div>
+</div>
+
+<div class="grid-2">
+    <div class="panel"><div class="panel-head"><h3>Avg Heart Rate / Window</h3></div><div class="chart-box sm"><canvas id="hrChart"></canvas></div></div>
+    <div class="panel"><div class="panel-head"><h3>Avg Temperature / Window</h3></div><div class="chart-box sm"><canvas id="tempChart"></canvas></div></div>
+</div>
+<div class="grid-2">
+    <div class="panel"><div class="panel-head"><h3>Avg SpO2 / Window</h3></div><div class="chart-box sm"><canvas id="spo2Chart"></canvas></div></div>
+    <div class="panel"><div class="panel-head"><h3>Alert Frequency by Type</h3></div><div class="chart-box sm"><canvas id="freqChart"></canvas></div></div>
+</div>
+
+<div class="panel">
+    <div class="panel-head"><h3>Patients with Highest Risk Indicators</h3></div>
+    <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Patient</th><th>Room</th><th>Risk Score</th><th>Category</th><th>Contributing Factors</th></tr></thead>
+            <tbody id="riskBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const SH = window.SmartHealth;
+        const hrChart = SH.lineChart(document.getElementById("hrChart"), "BPM", "#0f766e", "rgba(15,118,110,.12)");
+        const tempChart = SH.lineChart(document.getElementById("tempChart"), "°C", "#d97706", "rgba(217,119,6,.12)");
+        const spo2Chart = SH.lineChart(document.getElementById("spo2Chart"), "%", "#2563eb", "rgba(37,99,235,.12)");
+        const freqChart = SH.barChart(document.getElementById("freqChart"), "Alerts", "#dc2626");
+
+        async function load() {
+            try {
+                const d = await (await fetch("/api/analytics")).json();
+                document.getElementById("totalWindows").textContent = d.totalWindows;
+                SH.setSeries(hrChart, d.avgHeartRatePerWindow.map(p => p.label), d.avgHeartRatePerWindow.map(p => p.value));
+                SH.setSeries(tempChart, d.avgTemperaturePerWindow.map(p => p.label), d.avgTemperaturePerWindow.map(p => p.value));
+                SH.setSeries(spo2Chart, d.avgSpo2PerWindow.map(p => p.label), d.avgSpo2PerWindow.map(p => p.value));
+                SH.setSeries(freqChart, d.alertFrequencyByType.map(p => p.label), d.alertFrequencyByType.map(p => p.value));
+
+                document.getElementById("riskBody").innerHTML = d.highestRiskPatients.length ? d.highestRiskPatients.map(r => `
+                    <tr><td><a class="link-plain" href="/PatientDetails?patientId=${r.patientId}">${r.patientId}</a></td>
+                    <td>${r.roomNumber}</td>
+                    <td class="mono">${r.score}</td>
+                    <td><span class="badge-pill ${SH.riskClass(r.category)}">${r.category}</span></td>
+                    <td>${r.factors}</td></tr>`).join("") : '<tr><td colspan="5" class="empty">No risk data yet</td></tr>';
+            } catch (e) { }
+        }
+        load();
+        setInterval(load, 10000);
+    </script>
+}

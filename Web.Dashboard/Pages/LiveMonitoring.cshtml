@@ -1,0 +1,137 @@
+@page
+@model LiveMonitoringModel
+@{
+    ViewData["Title"] = "Live Monitoring";
+}
+
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Real-time telemetry</p>
+        <h2>Live Patient Monitoring</h2>
+        <p class="sub">Auto-updating vitals across all monitored patients.</p>
+    </div>
+</div>
+
+<div class="controls">
+    <input type="search" id="search" placeholder="Search patient or room…" />
+    <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="Normal">Normal</option>
+        <option value="Warning">Warning</option>
+        <option value="Critical">Critical</option>
+    </select>
+    <span class="badge-pill s-normal" id="cNormal">Normal 0</span>
+    <span class="badge-pill s-warning" id="cWarning">Warning 0</span>
+    <span class="badge-pill s-critical" id="cCritical">Critical 0</span>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table class="data" id="liveTable">
+            <thead>
+                <tr>
+                    <th data-sort="patientId">Patient ID</th>
+                    <th data-sort="roomNumber">Room</th>
+                    <th data-sort="heartRate">Heart Rate</th>
+                    <th data-sort="temperature">Temp</th>
+                    <th data-sort="spo2">SpO2</th>
+                    <th data-sort="bp">Blood Pressure</th>
+                    <th data-sort="respiratoryRate">Resp</th>
+                    <th data-sort="riskScore">AI Risk</th>
+                    <th data-sort="lastUpdate">Last Update</th>
+                    <th data-sort="status">Status</th>
+                </tr>
+            </thead>
+            <tbody id="liveBody"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const SH = window.SmartHealth;
+        const rows = new Map();
+        let sortKey = "roomNumber", sortDir = 1;
+
+        function classify(v) {
+            if (v.heartRate > 120 || v.heartRate < 50 || v.spo2 < 90 || v.temperature > 38.5 ||
+                v.systolicBp > 140 || v.diastolicBp > 90 || v.respiratoryRate > 24 || (v.respiratoryRate > 0 && v.respiratoryRate < 10)) return "Critical";
+            if (v.heartRate > 110 || v.heartRate < 55 || v.spo2 < 94 || v.temperature > 37.8 ||
+                v.systolicBp > 130 || v.diastolicBp > 85 || v.respiratoryRate > 22 || (v.respiratoryRate > 0 && v.respiratoryRate < 11)) return "Warning";
+            return "Normal";
+        }
+
+        function upsertVital(v) {
+            const r = rows.get(v.patientId) || { riskScore: 0, riskCategory: "Low Risk" };
+            Object.assign(r, {
+                patientId: v.patientId, patientName: v.patientName, roomNumber: v.roomNumber, age: v.age,
+                heartRate: v.heartRate, temperature: v.temperature, spo2: v.spo2,
+                systolicBp: v.systolicBp, diastolicBp: v.diastolicBp, respiratoryRate: v.respiratoryRate,
+                lastUpdate: v.recordedAt || v.lastUpdate, status: v.status || classify(v)
+            });
+            rows.set(v.patientId, r);
+        }
+
+        function upsertRisk(r) {
+            const row = rows.get(r.patientId);
+            if (row) { row.riskScore = r.score; row.riskCategory = r.category; }
+        }
+
+        function render() {
+            const q = document.getElementById("search").value.toLowerCase();
+            const sf = document.getElementById("statusFilter").value;
+            let counts = { Normal: 0, Warning: 0, Critical: 0 };
+            let list = [...rows.values()];
+            list.forEach(r => counts[r.status] !== undefined && counts[r.status]++);
+
+            list = list.filter(r =>
+                (!q || r.patientId.toLowerCase().includes(q) || r.roomNumber.toLowerCase().includes(q)) &&
+                (!sf || r.status === sf));
+
+            list.sort((a, b) => {
+                let av = sortKey === "bp" ? a.systolicBp : a[sortKey];
+                let bv = sortKey === "bp" ? b.systolicBp : b[sortKey];
+                if (typeof av === "string") return av.localeCompare(bv) * sortDir;
+                return ((av ?? 0) - (bv ?? 0)) * sortDir;
+            });
+
+            document.getElementById("liveBody").innerHTML = list.length ? list.map(r => `
+                <tr class="${r.status === 'Critical' ? 'row-critical' : ''}">
+                    <td class="mono"><a class="link-plain" href="/PatientDetails?patientId=${r.patientId}">${r.patientId}</a></td>
+                    <td>${r.roomNumber}</td>
+                    <td class="mono">${r.heartRate} <small>bpm</small></td>
+                    <td class="mono">${Number(r.temperature).toFixed(1)}°C</td>
+                    <td class="mono">${r.spo2}%</td>
+                    <td class="mono">${r.systolicBp}/${r.diastolicBp}</td>
+                    <td class="mono">${r.respiratoryRate}</td>
+                    <td><span class="badge-pill ${SH.riskClass(r.riskCategory)}">${r.riskScore}</span></td>
+                    <td>${SH.fmtTime(r.lastUpdate)}</td>
+                    <td><span class="badge-pill ${SH.statusClass(r.status)}"><span class="status-dot ${SH.statusClass(r.status)}"></span>${r.status}</span></td>
+                </tr>`).join("") : '<tr><td colspan="10" class="empty">No matching patients</td></tr>';
+
+            document.getElementById("cNormal").textContent = `Normal ${counts.Normal}`;
+            document.getElementById("cWarning").textContent = `Warning ${counts.Warning}`;
+            document.getElementById("cCritical").textContent = `Critical ${counts.Critical}`;
+        }
+
+        document.querySelectorAll("#liveTable th[data-sort]").forEach(th => th.addEventListener("click", () => {
+            const k = th.dataset.sort;
+            sortDir = (sortKey === k) ? -sortDir : 1; sortKey = k; render();
+        }));
+        document.getElementById("search").addEventListener("input", render);
+        document.getElementById("statusFilter").addEventListener("change", render);
+
+        SH.onVitals(v => { upsertVital(v); render(); });
+        SH.onRisk(r => { upsertRisk(r); render(); });
+
+        async function load() {
+            try {
+                const data = await (await fetch("/api/live")).json();
+                data.forEach(d => rows.set(d.patientId, d));
+                render();
+            } catch (e) { }
+        }
+        load();
+        setInterval(load, 8000);
+    </script>
+}

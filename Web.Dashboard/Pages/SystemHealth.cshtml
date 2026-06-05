@@ -1,0 +1,88 @@
+@page
+@model SystemHealthModel
+@{
+    ViewData["Title"] = "System Health";
+}
+
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Infrastructure monitoring</p>
+        <h2>System Health &amp; Performance</h2>
+        <p class="sub">Kafka, Spark Streaming, Cassandra and backend metrics.</p>
+    </div>
+    <span class="badge-pill" id="streamState">Checking…</span>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi tone-blue"><div class="kpi__icon">📨</div><div class="kpi__label">Messages / sec</div><div class="kpi__value" id="mps">0</div><div class="kpi__hint">Kafka → Spark throughput</div></div>
+    <div class="kpi tone-teal"><div class="kpi__icon">Σ</div><div class="kpi__label">Messages Received</div><div class="kpi__value" id="msgs">0</div><div class="kpi__hint">Since dashboard start</div></div>
+    <div class="kpi tone-amber"><div class="kpi__icon">⏱</div><div class="kpi__label">Processing Latency</div><div class="kpi__value" id="latency">0</div><div class="kpi__hint">ms / batch</div></div>
+    <div class="kpi tone-purple"><div class="kpi__icon">⚙</div><div class="kpi__label">API Response</div><div class="kpi__value" id="api">0</div><div class="kpi__hint">ms average</div></div>
+</div>
+
+<div class="grid-2">
+    <div class="panel">
+        <div class="panel-head"><h3>Kafka</h3></div>
+        <div class="metric-line"><span>Messages received</span><strong id="kMsgs">0</strong></div>
+        <div class="metric-line"><span>Messages / sec</span><strong id="kMps">0</strong></div>
+        <div class="metric-line"><span>Alerts generated</span><strong id="kAlerts">0</strong></div>
+    </div>
+    <div class="panel">
+        <div class="panel-head"><h3>Spark Streaming</h3></div>
+        <div class="metric-line"><span>Windows computed</span><strong id="sWindows">0</strong></div>
+        <div class="metric-line"><span>Last batch size</span><strong id="sBatch">0</strong></div>
+        <div class="metric-line"><span>Avg processing time</span><strong id="sLatency">0 ms</strong></div>
+    </div>
+</div>
+<div class="grid-2">
+    <div class="panel">
+        <div class="panel-head"><h3>Cassandra</h3></div>
+        <div class="metric-line"><span>Stored vitals (today)</span><strong id="cVitals">0</strong></div>
+        <div class="metric-line"><span>Stored alerts (today)</span><strong id="cAlerts">0</strong></div>
+        <div class="metric-line"><span>Write rate</span><strong id="cWrite">0 / sec</strong></div>
+    </div>
+    <div class="panel">
+        <div class="panel-head"><h3>Backend &amp; Dashboard</h3></div>
+        <div class="metric-line"><span>API average response</span><strong id="bApi">0 ms</strong></div>
+        <div class="metric-line"><span>Dashboard refresh latency</span><strong id="bRefresh">0 ms</strong></div>
+        <div class="metric-line"><span>Streaming processor</span><strong id="bStream">—</strong></div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-head"><h3>Throughput (messages / sec)</h3></div>
+    <div class="chart-box sm"><canvas id="tpChart"></canvas></div>
+</div>
+
+@section Scripts {
+    <script>
+        const SH = window.SmartHealth;
+        const tpChart = SH.lineChart(document.getElementById("tpChart"), "msg/s", "#2563eb", "rgba(37,99,235,.12)");
+
+        async function load() {
+            const started = performance.now();
+            try {
+                const d = await (await fetch("/api/system")).json();
+                const refresh = (performance.now() - started).toFixed(0);
+
+                mps.textContent = d.kafkaMessagesPerSecond; msgs.textContent = d.kafkaMessagesReceived;
+                latency.textContent = d.sparkAvgProcessingMs; api.textContent = d.apiAverageResponseMs;
+
+                kMsgs.textContent = d.kafkaMessagesReceived; kMps.textContent = d.kafkaMessagesPerSecond; kAlerts.textContent = d.alertsGenerated;
+                sWindows.textContent = d.sparkWindowsComputed; sBatch.textContent = d.sparkLastBatchSize; sLatency.textContent = d.sparkAvgProcessingMs + " ms";
+                cVitals.textContent = d.storedVitals; cAlerts.textContent = d.storedAlerts; cWrite.textContent = d.cassandraWriteRatePerSecond + " / sec";
+                bApi.textContent = d.apiAverageResponseMs + " ms"; bRefresh.textContent = refresh + " ms";
+
+                const online = d.streamingOnline;
+                bStream.textContent = online ? "Online" : "Offline";
+                const state = document.getElementById("streamState");
+                state.textContent = online ? "Streaming Online" : "Streaming Offline";
+                state.className = "badge-pill " + (online ? "s-normal" : "s-critical");
+
+                SH.pushPoint(tpChart, new Date().toLocaleTimeString(), d.kafkaMessagesPerSecond, 40);
+            } catch (e) { }
+        }
+        load();
+        setInterval(load, 3000);
+    </script>
+}

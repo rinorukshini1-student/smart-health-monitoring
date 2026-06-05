@@ -1,0 +1,74 @@
+{
+  "chosenModel": "Gradient Boosting",
+  "trainedAt": "2026-06-04T20:06:26.9093163+00:00",
+  "rows": 8763,
+  "positives": 3139,
+  "metrics": [
+    {
+      "model": "Logistic Regression",
+      "accuracy": 0.6608,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "auc": 0.4933
+    },
+    {
+      "model": "Gradient Boosting",
+      "accuracy": 0.6031,
+      "precision": 0.3462,
+      "recall": 0.1912,
+      "f1": 0.2463,
+      "auc": 0.5063
+    },
+    {
+      "model": "Random Forest",
+      "accuracy": 0.6608,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "auc": 0.5022
+    }
+  ],
+  "topFactors": [
+    {
+      "factor": "BMI",
+      "importance": 0.04483
+    },
+    {
+      "factor": "Sedentary Hours/Day",
+      "importance": 0.04118
+    },
+    {
+      "factor": "Cholesterol",
+      "importance": 0.03819
+    },
+    {
+      "factor": "Exercise Hours/Week",
+      "importance": 0.03658
+    },
+    {
+      "factor": "Blood Pressure (Systolic)",
+      "importance": 0.035
+    },
+    {
+      "factor": "Triglycerides",
+      "importance": 0.03062
+    },
+    {
+      "factor": "Heart Rate",
+      "importance": 0.02653
+    },
+    {
+      "factor": "Age",
+      "importance": 0.02463
+    },
+    {
+      "factor": "Blood Pressure (Diastolic)",
+      "importance": 0.02295
+    },
+    {
+      "factor": "Physical Activity Days/Week",
+      "importance": 0.01206
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+@page
+@model AlertsModel
+@{
+    ViewData["Title"] = "Alert Center";
+}
+
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Clinical alerting</p>
+        <h2>Alert Center</h2>
+        <p class="sub">Automatically generated from Spark Streaming rule evaluation.</p>
+    </div>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi tone-red"><div class="kpi__icon">⚠</div><div class="kpi__label">Critical</div><div class="kpi__value" id="cCritical">0</div><div class="kpi__hint">Last 24h</div></div>
+    <div class="kpi tone-amber"><div class="kpi__icon">▲</div><div class="kpi__label">Warning</div><div class="kpi__value" id="cWarning">0</div><div class="kpi__hint">Last 24h</div></div>
+    <div class="kpi tone-blue"><div class="kpi__icon">ℹ</div><div class="kpi__label">Info</div><div class="kpi__value" id="cInfo">0</div><div class="kpi__hint">Last 24h</div></div>
+    <div class="kpi tone-teal"><div class="kpi__icon">Σ</div><div class="kpi__label">Total Alerts</div><div class="kpi__value" id="cTotal">0</div><div class="kpi__hint">Last 24h</div></div>
+</div>
+
+<div class="controls">
+    <input type="search" id="search" placeholder="Search patient, room, message…" />
+    <select id="sevFilter">
+        <option value="">All severities</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="WARNING">Warning</option>
+        <option value="INFO">Info</option>
+    </select>
+    <select id="typeFilter">
+        <option value="">All types</option>
+        <option value="HeartRate">Heart Rate</option>
+        <option value="Temperature">Temperature</option>
+        <option value="SpO2">SpO2</option>
+        <option value="BloodPressure">Blood Pressure</option>
+        <option value="RespiratoryRate">Respiratory Rate</option>
+    </select>
+</div>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Alert ID</th><th>Patient</th><th>Room</th><th>Type</th><th>Severity</th><th>Value</th><th>Message</th><th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="alertBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const SH = window.SmartHealth;
+
+        function render(list) {
+            const counts = { CRITICAL: 0, WARNING: 0, INFO: 0 };
+            list.forEach(a => counts[a.severity] !== undefined && counts[a.severity]++);
+            cCritical.textContent = counts.CRITICAL; cWarning.textContent = counts.WARNING;
+            cInfo.textContent = counts.INFO; cTotal.textContent = list.length;
+
+            document.getElementById("alertBody").innerHTML = list.length ? list.map(a => `
+                <tr class="${a.severity === 'CRITICAL' ? 'row-critical' : ''}">
+                    <td class="mono" title="${a.alertId}">${(a.alertId || '').slice(0, 8)}</td>
+                    <td><a class="link-plain" href="/PatientDetails?patientId=${a.patientId}">${a.patientId}</a></td>
+                    <td>${a.roomNumber}</td>
+                    <td>${a.alertType}</td>
+                    <td><span class="badge-pill ${SH.sevClass(a.severity)}">${a.severity}</span></td>
+                    <td class="mono">${Number(a.value).toFixed(1)}</td>
+                    <td>${a.message}</td>
+                    <td>${SH.fmtDateTime(a.recordedAt)}</td>
+                </tr>`).join("") : '<tr><td colspan="8" class="empty">No alerts match the filters</td></tr>';
+        }
+
+        async function load() {
+            const q = document.getElementById("search").value;
+            const sev = document.getElementById("sevFilter").value;
+            const type = document.getElementById("typeFilter").value;
+            try {
+                const url = `/api/alerts?limit=300&q=${encodeURIComponent(q)}&severity=${sev}&type=${type}`;
+                render(await (await fetch(url)).json());
+            } catch (e) { }
+        }
+
+        ["search", "sevFilter", "typeFilter"].forEach(id => document.getElementById(id).addEventListener("input", load));
+        SH.onAlert(() => load());
+        load();
+        setInterval(load, 6000);
+    </script>
+}
