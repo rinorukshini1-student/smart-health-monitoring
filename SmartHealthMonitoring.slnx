@@ -3,4 +3,5 @@
   <Project Path="Streaming.App/Streaming.App.csproj" />
   <Project Path="Web.Dashboard/Web.Dashboard.csproj" />
   <Project Path="Vue.Api/Vue.Api.csproj" />
+  <Project Path="vue-client/vue-client.esproj" />
 </Solution>

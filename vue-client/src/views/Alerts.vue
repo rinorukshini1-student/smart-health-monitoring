@@ -3,7 +3,9 @@ import { ref, computed, onMounted } from 'vue'
 import { api } from '../services/api'
 import { useRealtime } from '../stores/realtime'
 import Panel from '../components/Panel.vue'
+import LaIcon from '../components/LaIcon.vue'
 import { severityClass, clockTime } from '../utils/format'
+import { translateSeverity, translateAlertType, filterLabels } from '../utils/i18n'
 
 const rt = useRealtime()
 const serverAlerts = ref([])
@@ -11,9 +13,15 @@ const search = ref('')
 const severity = ref('all')
 const typeFilter = ref('all')
 
+const severityFilters = [
+  { key: 'all', label: filterLabels.all },
+  { key: 'CRITICAL', label: filterLabels.CRITICAL },
+  { key: 'WARNING', label: filterLabels.WARNING },
+  { key: 'INFO', label: filterLabels.INFO }
+]
+
 onMounted(async () => { try { serverAlerts.value = await api.alerts({ limit: 250 }) } catch (e) {} })
 
-// Merge live (newest) with the initial server snapshot, de-duplicating by alertId.
 const merged = computed(() => {
   const map = new Map()
   for (const a of [...rt.alerts, ...serverAlerts.value]) if (!map.has(a.alertId)) map.set(a.alertId, a)
@@ -43,35 +51,35 @@ const counts = computed(() => ({
 <template>
   <div class="grid" style="gap:18px;">
     <div class="grid kpis">
-      <div class="kpi kpi-row"><div><span class="label">Total Alerts</span><div class="value">{{ counts.total }}</div></div><span class="icon blue">🚨</span></div>
-      <div class="kpi kpi-row"><div><span class="label">Critical</span><div class="value" style="color:#dc2626">{{ counts.critical }}</div></div><span class="icon red">⛔</span></div>
-      <div class="kpi kpi-row"><div><span class="label">Warning</span><div class="value" style="color:#d97706">{{ counts.warning }}</div></div><span class="icon amber">⚠</span></div>
-      <div class="kpi kpi-row"><div><span class="label">Info</span><div class="value" style="color:#2563eb">{{ counts.info }}</div></div><span class="icon sky">ℹ</span></div>
+      <div class="kpi kpi-row"><div><span class="label">Alarme Totalë</span><div class="value">{{ counts.total }}</div></div><span class="icon blue"><LaIcon icon="la-bell" /></span></div>
+      <div class="kpi kpi-row"><div><span class="label">Kritik</span><div class="value" style="color:#dc2626">{{ counts.critical }}</div></div><span class="icon red"><LaIcon icon="la-ban" /></span></div>
+      <div class="kpi kpi-row"><div><span class="label">Paralajmërim</span><div class="value" style="color:#d97706">{{ counts.warning }}</div></div><span class="icon amber"><LaIcon icon="la-exclamation-triangle" /></span></div>
+      <div class="kpi kpi-row"><div><span class="label">Informacion</span><div class="value" style="color:#2563eb">{{ counts.info }}</div></div><span class="icon sky"><LaIcon icon="la-info-circle" /></span></div>
     </div>
 
-    <Panel title="Alert Log" hint="live · newest first">
+    <Panel title="Regjistri i Alarmeve" hint="në kohë reale · më të rejat së pari">
       <div class="controls" style="margin-bottom:14px;">
-        <input class="search" type="search" v-model="search" placeholder="Search patient, room or message…" />
-        <button v-for="s in ['all','CRITICAL','WARNING','INFO']" :key="s" class="chip"
-                :class="{ active: severity === s }" @click="severity = s">{{ s === 'all' ? 'All' : s }}</button>
+        <input class="search" type="search" v-model="search" placeholder="Kërko pacient, dhomë ose mesazh…" />
+        <button v-for="s in severityFilters" :key="s.key" class="chip"
+                :class="{ active: severity === s.key }" @click="severity = s.key">{{ s.label }}</button>
         <select v-model="typeFilter">
-          <option v-for="t in types" :key="t" :value="t">{{ t === 'all' ? 'All types' : t }}</option>
+          <option v-for="t in types" :key="t" :value="t">{{ t === 'all' ? 'Të gjitha llojet' : translateAlertType(t) }}</option>
         </select>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Alert ID</th><th>Patient</th><th>Type</th><th>Severity</th><th>Value</th><th>Message</th><th>Timestamp</th></tr></thead>
+          <thead><tr><th>ID Alarmi</th><th>Pacienti</th><th>Lloji</th><th>Severiteti</th><th>Vlera</th><th>Mesazhi</th><th>Koha</th></tr></thead>
           <tbody>
             <tr v-for="a in filtered.slice(0, 200)" :key="a.alertId">
               <td class="mono muted">{{ a.alertId.slice(0, 8) }}</td>
-              <td><strong>{{ a.patientId }}</strong> <span class="muted">Rm {{ a.roomNumber }}</span></td>
-              <td>{{ a.alertType }}</td>
-              <td><span class="badge" :class="severityClass(a.severity)">{{ a.severity }}</span></td>
+              <td><strong>{{ a.patientId }}</strong> <span class="muted">Dh {{ a.roomNumber }}</span></td>
+              <td>{{ translateAlertType(a.alertType) }}</td>
+              <td><span class="badge" :class="severityClass(a.severity)">{{ translateSeverity(a.severity) }}</span></td>
               <td class="mono">{{ a.value }}</td>
               <td class="muted">{{ a.message }}</td>
               <td class="muted">{{ clockTime(a.recordedAt) }}</td>
             </tr>
-            <tr v-if="!filtered.length"><td colspan="7" class="empty">No alerts match the filters…</td></tr>
+            <tr v-if="!filtered.length"><td colspan="7" class="empty">Asnjë alarm nuk përputhet me filtrat…</td></tr>
           </tbody>
         </table>
       </div>

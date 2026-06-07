@@ -5,6 +5,7 @@ import { api } from '../services/api'
 import { useRealtime } from '../stores/realtime'
 import Panel from '../components/Panel.vue'
 import { classifyVitals, statusClass, timeAgo } from '../utils/format'
+import { translateStatus, filterLabels } from '../utils/i18n'
 
 const rt = useRealtime()
 const router = useRouter()
@@ -12,6 +13,13 @@ const search = ref('')
 const statusFilter = ref('all')
 const sortKey = ref('roomNumber')
 const sortDir = ref('asc')
+
+const statusFilters = [
+  { key: 'all', label: filterLabels.all },
+  { key: 'normal', label: filterLabels.normal },
+  { key: 'warning', label: filterLabels.warning },
+  { key: 'critical', label: filterLabels.critical }
+]
 
 onMounted(async () => {
   try {
@@ -64,38 +72,38 @@ function sortBy(key) {
 <template>
   <div class="grid" style="gap:18px;">
     <div class="grid kpis">
-      <div class="kpi"><span class="label">Monitored</span><span class="value">{{ counts.all }}</span></div>
+      <div class="kpi"><span class="label">Të monitoruar</span><span class="value">{{ counts.all }}</span></div>
       <div class="kpi"><span class="label">Normal</span><span class="value" style="color:#16a34a">{{ counts.normal }}</span></div>
-      <div class="kpi"><span class="label">Warning</span><span class="value" style="color:#d97706">{{ counts.warning }}</span></div>
-      <div class="kpi"><span class="label">Critical</span><span class="value" style="color:#dc2626">{{ counts.critical }}</span></div>
+      <div class="kpi"><span class="label">Paralajmërim</span><span class="value" style="color:#d97706">{{ counts.warning }}</span></div>
+      <div class="kpi"><span class="label">Kritik</span><span class="value" style="color:#dc2626">{{ counts.critical }}</span></div>
     </div>
 
-    <Panel title="Live Patient Vitals" hint="updates automatically via SignalR">
+    <Panel title="Vitalët e Pacientëve në Kohë Reale" hint="përditësohen automatikisht përmes SignalR">
       <div class="controls" style="margin-bottom:14px;">
-        <input class="search" type="search" v-model="search" placeholder="Search patient or room…" />
-        <button v-for="s in ['all','normal','warning','critical']" :key="s" class="chip"
-                :class="{ active: statusFilter === s }" @click="statusFilter = s">
-          {{ s[0].toUpperCase() + s.slice(1) }}
+        <input class="search" type="search" v-model="search" placeholder="Kërko pacient ose dhomë…" />
+        <button v-for="s in statusFilters" :key="s.key" class="chip"
+                :class="{ active: statusFilter === s.key }" @click="statusFilter = s.key">
+          {{ s.label }}
         </button>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th class="sortable" @click="sortBy('patientId')">Patient ID</th>
-              <th class="sortable" @click="sortBy('heartRate')">Heart Rate</th>
+              <th class="sortable" @click="sortBy('patientId')">ID Pacienti</th>
+              <th class="sortable" @click="sortBy('heartRate')">Pulsi</th>
               <th class="sortable" @click="sortBy('temperature')">Temp</th>
               <th class="sortable" @click="sortBy('spo2')">SpO₂</th>
-              <th>Blood Pressure</th>
-              <th class="sortable" @click="sortBy('respiratoryRate')">Resp</th>
-              <th class="sortable" @click="sortBy('risk')">Risk</th>
-              <th class="sortable" @click="sortBy('recordedAt')">Last Update</th>
-              <th class="sortable" @click="sortBy('status')">Status</th>
+              <th>Tensioni i Gjakut</th>
+              <th class="sortable" @click="sortBy('respiratoryRate')">Frymëmarrja</th>
+              <th class="sortable" @click="sortBy('risk')">Rreziku</th>
+              <th class="sortable" @click="sortBy('recordedAt')">Përditësimi i Fundit</th>
+              <th class="sortable" @click="sortBy('status')">Statusi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="r in filtered" :key="r.patientId" class="clickable" @click="router.push(`/patients/${r.patientId}`)">
-              <td><strong>{{ r.patientId }}</strong><div class="muted" style="font-size:12px">{{ r.patientName }} · Rm {{ r.roomNumber }}</div></td>
+              <td><strong>{{ r.patientId }}</strong><div class="muted" style="font-size:12px">{{ r.patientName }} · Dh {{ r.roomNumber }}</div></td>
               <td class="mono">{{ r.heartRate }} <span class="muted">bpm</span></td>
               <td class="mono">{{ r.temperature?.toFixed(1) }}°C</td>
               <td class="mono">{{ r.spo2 }}%</td>
@@ -103,9 +111,9 @@ function sortBy(key) {
               <td class="mono">{{ r.respiratoryRate }}</td>
               <td class="mono">{{ r.risk }}</td>
               <td class="muted">{{ timeAgo(r.recordedAt) }}</td>
-              <td><span class="badge" :class="statusClass(r.status)">{{ r.status }}</span></td>
+              <td><span class="badge" :class="statusClass(r.status)">{{ translateStatus(r.status) }}</span></td>
             </tr>
-            <tr v-if="!filtered.length"><td colspan="9" class="empty">Waiting for live data…</td></tr>
+            <tr v-if="!filtered.length"><td colspan="9" class="empty">Duke pritur të dhëna në kohë reale…</td></tr>
           </tbody>
         </table>
       </div>

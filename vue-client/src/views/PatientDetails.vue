@@ -3,7 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../services/api'
 import Panel from '../components/Panel.vue'
-import { clockTime, riskClass, riskColor, pct, timeAgo } from '../utils/format'
+import { clockTime, riskClass, riskColor, pct } from '../utils/format'
+import { translateRiskCategory, translateRiskCategoryLong } from '../utils/i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +14,12 @@ const profile = ref(null)
 const ml = ref(null)
 const mlHistory = ref([])
 const range = ref('day')
+
+const ranges = [
+  ['hour', 'Ora e Fundit'],
+  ['day', '24 Orët e Fundit'],
+  ['week', '7 Ditët e Fundit']
+]
 
 const currentId = computed(() => route.params.id || patients.value[0]?.patientId)
 
@@ -44,12 +51,12 @@ const lineOpts = (color, categories) => ({
   stroke: { curve: 'smooth', width: 2 }, colors: [color], dataLabels: { enabled: false },
   grid: { borderColor: '#eef2f7' }, xaxis: { categories, labels: { show: false } }
 })
-const hr = computed(() => ({ options: lineOpts('#0ea5e9', labels.value), series: [{ name: 'HR', data: detail.value?.heartRates ?? [] }] }))
-const temp = computed(() => ({ options: lineOpts('#0d9488', labels.value), series: [{ name: 'Temp', data: detail.value?.temperatures ?? [] }] }))
-const spo2 = computed(() => ({ options: lineOpts('#2563eb', labels.value), series: [{ name: 'SpO2', data: detail.value?.spo2s ?? [] }] }))
+const hr = computed(() => ({ options: lineOpts('#0ea5e9', labels.value), series: [{ name: 'Pulsi', data: detail.value?.heartRates ?? [] }] }))
+const temp = computed(() => ({ options: lineOpts('#0d9488', labels.value), series: [{ name: 'Temperatura', data: detail.value?.temperatures ?? [] }] }))
+const spo2 = computed(() => ({ options: lineOpts('#2563eb', labels.value), series: [{ name: 'SpO₂', data: detail.value?.spo2s ?? [] }] }))
 const bp = computed(() => ({
   options: { ...lineOpts('#dc2626', labels.value), colors: ['#dc2626', '#f59e0b'] },
-  series: [{ name: 'Systolic', data: detail.value?.systolics ?? [] }, { name: 'Diastolic', data: detail.value?.diastolics ?? [] }]
+  series: [{ name: 'Sistolik', data: detail.value?.systolics ?? [] }, { name: 'Diastolik', data: detail.value?.diastolics ?? [] }]
 }))
 
 const mlHistChart = computed(() => ({
@@ -60,7 +67,7 @@ const mlHistChart = computed(() => ({
     yaxis: { min: 0, max: 1, labels: { formatter: v => Math.round(v * 100) + '%' } },
     xaxis: { categories: mlHistory.value.map(p => clockTime(p.timestamp)), labels: { show: false } }
   },
-  series: [{ name: 'Heart-attack risk', data: mlHistory.value.map(p => p.riskProbability) }]
+  series: [{ name: 'Rreziku i infarktit', data: mlHistory.value.map(p => p.riskProbability) }]
 }))
 
 const ruleFactors = computed(() => (detail.value?.riskFactors ?? '').split(';').map(s => s.trim()).filter(Boolean))
@@ -70,32 +77,32 @@ const ruleFactors = computed(() => (detail.value?.riskFactors ?? '').split(';').
   <div class="grid" style="gap:18px;">
     <div class="controls">
       <select :value="currentId" @change="router.push(`/patients/${$event.target.value}`)">
-        <option v-for="p in patients" :key="p.patientId" :value="p.patientId">{{ p.patientId }} — {{ p.patientName }} (Rm {{ p.roomNumber }})</option>
+        <option v-for="p in patients" :key="p.patientId" :value="p.patientId">{{ p.patientId }} — {{ p.patientName }} (Dh {{ p.roomNumber }})</option>
       </select>
       <span style="flex:1"></span>
-      <button v-for="r in [['hour','Last Hour'],['day','Last 24h'],['week','Last 7 Days']]" :key="r[0]"
+      <button v-for="r in ranges" :key="r[0]"
               class="chip" :class="{ active: range === r[0] }" @click="range = r[0]">{{ r[1] }}</button>
     </div>
 
     <div v-if="detail" class="grid cols-3">
-      <Panel title="Patient Information">
+      <Panel title="Informacioni i Pacientit">
         <div class="grid" style="gap:8px;font-size:14px;">
-          <div class="kpi-row"><span class="muted">Name</span><strong>{{ detail.patientName }}</strong></div>
-          <div class="kpi-row"><span class="muted">Patient ID</span><strong>{{ detail.patientId }}</strong></div>
-          <div class="kpi-row"><span class="muted">Room</span><strong>{{ detail.roomNumber }}</strong></div>
-          <div class="kpi-row"><span class="muted">Age</span><strong>{{ detail.age }}</strong></div>
+          <div class="kpi-row"><span class="muted">Emri</span><strong>{{ detail.patientName }}</strong></div>
+          <div class="kpi-row"><span class="muted">ID Pacienti</span><strong>{{ detail.patientId }}</strong></div>
+          <div class="kpi-row"><span class="muted">Dhoma</span><strong>{{ detail.roomNumber }}</strong></div>
+          <div class="kpi-row"><span class="muted">Mosha</span><strong>{{ detail.age }}</strong></div>
           <template v-if="profile">
-            <div class="kpi-row"><span class="muted">Sex</span><strong>{{ profile.sex }}</strong></div>
-            <div class="kpi-row"><span class="muted">Cholesterol</span><strong>{{ profile.cholesterol }} mg/dL</strong></div>
+            <div class="kpi-row"><span class="muted">Gjinia</span><strong>{{ profile.sex }}</strong></div>
+            <div class="kpi-row"><span class="muted">Kolesteroli</span><strong>{{ profile.cholesterol }} mg/dL</strong></div>
             <div class="kpi-row"><span class="muted">BMI</span><strong>{{ profile.bmi?.toFixed(1) }}</strong></div>
-            <div class="kpi-row"><span class="muted">Smoker</span><strong>{{ profile.smoking ? 'Yes' : 'No' }}</strong></div>
-            <div class="kpi-row"><span class="muted">Diabetes</span><strong>{{ profile.diabetes ? 'Yes' : 'No' }}</strong></div>
-            <div class="kpi-row"><span class="muted">Family History</span><strong>{{ profile.familyHistory ? 'Yes' : 'No' }}</strong></div>
+            <div class="kpi-row"><span class="muted">Duhanpirës</span><strong>{{ profile.smoking ? 'Po' : 'Jo' }}</strong></div>
+            <div class="kpi-row"><span class="muted">Diabeti</span><strong>{{ profile.diabetes ? 'Po' : 'Jo' }}</strong></div>
+            <div class="kpi-row"><span class="muted">Historia Familjare</span><strong>{{ profile.familyHistory ? 'Po' : 'Jo' }}</strong></div>
           </template>
         </div>
       </Panel>
 
-      <Panel title="AI Heart-Attack Risk" hint="ML.NET" style="grid-column: span 2;">
+      <Panel title="Rreziku AI i Infarktit" hint="ML.NET" style="grid-column: span 2;">
         <div class="grid cols-2" style="gap:18px;">
           <div>
             <div style="display:flex;align-items:center;gap:18px;">
@@ -103,48 +110,48 @@ const ruleFactors = computed(() => (detail.value?.riskFactors ?? '').split(';').
                 <div style="font-size:46px;font-weight:800;" :style="{ color: riskColor(ml?.riskCategory) }">
                   {{ ml ? pct(ml.riskProbability) : '—' }}
                 </div>
-                <span class="badge" :class="riskClass(ml?.riskCategory)">{{ ml?.riskCategory ?? 'N/A' }}</span>
+                <span class="badge" :class="riskClass(ml?.riskCategory)">{{ ml ? translateRiskCategory(ml.riskCategory) : 'N/A' }}</span>
               </div>
               <div style="flex:1">
-                <div class="muted" style="font-size:13px;margin-bottom:8px;">Rule-based early-warning score</div>
+                <div class="muted" style="font-size:13px;margin-bottom:8px;">Rezultati paralajmërues i bazuar në rregulla</div>
                 <div style="font-size:30px;font-weight:700;">{{ detail.currentRiskScore }}<span class="muted" style="font-size:15px;">/100</span></div>
                 <div class="risk-meter" style="margin-top:8px;">
                   <span :style="{ width: detail.currentRiskScore + '%', background: riskColor(detail.currentRiskCategory) }"></span>
                 </div>
-                <span class="badge" :class="riskClass(detail.currentRiskCategory)" style="margin-top:8px;">{{ detail.currentRiskCategory }}</span>
+                <span class="badge" :class="riskClass(detail.currentRiskCategory)" style="margin-top:8px;">{{ translateRiskCategoryLong(detail.currentRiskCategory) }}</span>
               </div>
             </div>
             <div style="margin-top:16px;">
-              <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Top Risk Factors</div>
+              <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Faktorët Kryesorë të Rrezikut</div>
               <div style="display:flex;flex-wrap:wrap;gap:8px;">
                 <span v-for="(f,i) in (ml?.topFactors ?? ruleFactors)" :key="i" class="badge plain">{{ f }}</span>
               </div>
             </div>
           </div>
           <div>
-            <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Prediction History</div>
+            <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Historia e Parashikimeve</div>
             <apexchart v-if="mlHistory.length" type="area" height="220" :options="mlHistChart.options" :series="mlHistChart.series" />
-            <div v-else class="empty">No prediction history yet…</div>
+            <div v-else class="empty">Ende pa histori parashikimesh…</div>
           </div>
         </div>
       </Panel>
     </div>
 
     <div v-if="detail" class="grid cols-2">
-      <Panel :title="`Heart Rate · ${detail.heartRateStat.average} avg`" :hint="`min ${detail.heartRateStat.min} / max ${detail.heartRateStat.max}`">
+      <Panel :title="`Pulsi · ${detail.heartRateStat.average} mesatar`" :hint="`min ${detail.heartRateStat.min} / max ${detail.heartRateStat.max}`">
         <apexchart type="line" height="220" :options="hr.options" :series="hr.series" />
       </Panel>
-      <Panel :title="`Temperature · ${detail.temperatureStat.average}°C avg`" :hint="`min ${detail.temperatureStat.min} / max ${detail.temperatureStat.max}`">
+      <Panel :title="`Temperatura · ${detail.temperatureStat.average}°C mesatare`" :hint="`min ${detail.temperatureStat.min} / max ${detail.temperatureStat.max}`">
         <apexchart type="line" height="220" :options="temp.options" :series="temp.series" />
       </Panel>
-      <Panel :title="`SpO₂ · ${detail.spo2Stat.average}% avg`" :hint="`min ${detail.spo2Stat.min} / max ${detail.spo2Stat.max}`">
+      <Panel :title="`SpO₂ · ${detail.spo2Stat.average}% mesatar`" :hint="`min ${detail.spo2Stat.min} / max ${detail.spo2Stat.max}`">
         <apexchart type="line" height="220" :options="spo2.options" :series="spo2.series" />
       </Panel>
-      <Panel :title="`Blood Pressure · ${detail.bloodPressureStat.average} avg systolic`" hint="systolic / diastolic">
+      <Panel :title="`Tensioni i Gjakut · ${detail.bloodPressureStat.average} sistolik mesatar`" hint="sistolik / diastolik">
         <apexchart type="line" height="220" :options="bp.options" :series="bp.series" />
       </Panel>
     </div>
 
-    <div v-else class="empty">Loading patient…</div>
+    <div v-else class="empty">Duke ngarkuar pacientin…</div>
   </div>
 </template>

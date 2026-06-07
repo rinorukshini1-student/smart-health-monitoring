@@ -1,6 +1,6 @@
 namespace Vue.Api;
 
-// Alert rule engine - one alert per breached clinical threshold (INFO/WARNING/CRITICAL).
+// Motori i rregullave të alarmeve — një alarm për çdo prag klinik të tejkaluar (INFO/WARNING/CRITICAL).
 public static class AlertRules
 {
     public const string Critical = "CRITICAL";
@@ -10,25 +10,25 @@ public static class AlertRules
     {
         var alerts = new List<AlertMessageDto>();
 
-        if (r.HeartRate > 120) alerts.Add(Build(r, "HeartRate", Critical, $"High heart rate {r.HeartRate} BPM", r.HeartRate));
-        else if (r.HeartRate < 50) alerts.Add(Build(r, "HeartRate", Critical, $"Low heart rate {r.HeartRate} BPM", r.HeartRate));
-        else if (r.HeartRate > 110 || r.HeartRate < 55) alerts.Add(Build(r, "HeartRate", Warning, $"Heart rate trending {r.HeartRate} BPM", r.HeartRate));
+        if (r.HeartRate > 120) alerts.Add(Build(r, "HeartRate", Critical, $"Pulsi i lartë {r.HeartRate} BPM", r.HeartRate));
+        else if (r.HeartRate < 50) alerts.Add(Build(r, "HeartRate", Critical, $"Pulsi i ulët {r.HeartRate} BPM", r.HeartRate));
+        else if (r.HeartRate > 110 || r.HeartRate < 55) alerts.Add(Build(r, "HeartRate", Warning, $"Pulsi jashtë normës {r.HeartRate} BPM", r.HeartRate));
 
-        if (r.Temperature > 38.5) alerts.Add(Build(r, "Temperature", Critical, $"High temperature {r.Temperature:0.0}C", r.Temperature));
-        else if (r.Temperature > 37.8) alerts.Add(Build(r, "Temperature", Warning, $"Elevated temperature {r.Temperature:0.0}C", r.Temperature));
+        if (r.Temperature > 38.5) alerts.Add(Build(r, "Temperature", Critical, $"Temperaturë e lartë {r.Temperature:0.0}°C", r.Temperature));
+        else if (r.Temperature > 37.8) alerts.Add(Build(r, "Temperature", Warning, $"Temperaturë e ngritur {r.Temperature:0.0}°C", r.Temperature));
 
-        if (r.Spo2 < 90) alerts.Add(Build(r, "SpO2", Critical, $"Low oxygen saturation {r.Spo2}%", r.Spo2));
-        else if (r.Spo2 < 94) alerts.Add(Build(r, "SpO2", Warning, $"Oxygen saturation {r.Spo2}%", r.Spo2));
+        if (r.Spo2 < 90) alerts.Add(Build(r, "SpO2", Critical, $"Saturim i ulët i oksigjenit {r.Spo2}%", r.Spo2));
+        else if (r.Spo2 < 94) alerts.Add(Build(r, "SpO2", Warning, $"Saturimi i oksigjenit {r.Spo2}%", r.Spo2));
 
         if (r.SystolicBp > 140 || r.DiastolicBp > 90)
-            alerts.Add(Build(r, "BloodPressure", Critical, $"High blood pressure {r.SystolicBp}/{r.DiastolicBp} mmHg", r.SystolicBp));
+            alerts.Add(Build(r, "BloodPressure", Critical, $"Tension i lartë i gjakut {r.SystolicBp}/{r.DiastolicBp} mmHg", r.SystolicBp));
         else if (r.SystolicBp > 130 || r.DiastolicBp > 85)
-            alerts.Add(Build(r, "BloodPressure", Warning, $"Blood pressure trending {r.SystolicBp}/{r.DiastolicBp} mmHg", r.SystolicBp));
+            alerts.Add(Build(r, "BloodPressure", Warning, $"Tension i gjakut jashtë normës {r.SystolicBp}/{r.DiastolicBp} mmHg", r.SystolicBp));
 
         if (r.RespiratoryRate > 24 || r.RespiratoryRate < 10)
-            alerts.Add(Build(r, "RespiratoryRate", Critical, $"Abnormal respiratory rate {r.RespiratoryRate}/min", r.RespiratoryRate));
+            alerts.Add(Build(r, "RespiratoryRate", Critical, $"Frekuencë e parregullt e frymëmarrjes {r.RespiratoryRate}/min", r.RespiratoryRate));
         else if (r.RespiratoryRate > 22 || r.RespiratoryRate < 11)
-            alerts.Add(Build(r, "RespiratoryRate", Warning, $"Respiratory rate {r.RespiratoryRate}/min", r.RespiratoryRate));
+            alerts.Add(Build(r, "RespiratoryRate", Warning, $"Frekuenca e frymëmarrjes {r.RespiratoryRate}/min", r.RespiratoryRate));
 
         return alerts;
     }

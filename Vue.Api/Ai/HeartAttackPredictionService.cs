@@ -94,24 +94,24 @@ public sealed class HeartAttackPredictionService
         var category = probability >= 0.70 ? "HIGH" : probability >= 0.30 ? "MEDIUM" : "LOW";
 
         return new MlPredictionDto(p.PatientId, p.PatientName, p.RoomNumber, Math.Round(probability, 4),
-            category, "Heart Attack Risk", BuildTopFactors(p, hr, systolic, diastolic), hr, systolic, diastolic, DateTimeOffset.UtcNow);
+            category, "Rrezik infarkti", BuildTopFactors(p, hr, systolic, diastolic), hr, systolic, diastolic, DateTimeOffset.UtcNow);
     }
 
     private static List<string> BuildTopFactors(PatientProfileDto p, int hr, int systolic, int diastolic)
     {
         var f = new List<string>();
-        if (p.Cholesterol >= 240) f.Add($"High cholesterol ({p.Cholesterol} mg/dL)");
-        if (p.Bmi >= 30) f.Add($"Obese BMI ({p.Bmi:0.0})");
-        if (p.Smoking == 1) f.Add("Smoker");
-        if (p.Diabetes == 1) f.Add("Diabetic");
-        if (systolic > 140 || diastolic > 90) f.Add($"High blood pressure ({systolic}/{diastolic})");
-        if (p.FamilyHistory == 1) f.Add("Family history of heart disease");
-        if (p.PreviousHeartProblems == 1) f.Add("Previous heart problems");
-        if (p.Triglycerides >= 200) f.Add($"High triglycerides ({p.Triglycerides})");
-        if (p.Age >= 65) f.Add($"Advanced age ({p.Age})");
-        if (hr > 120 || (hr > 0 && hr < 50)) f.Add($"Abnormal heart rate ({hr} BPM)");
-        if (p.StressLevel >= 8) f.Add($"High stress level ({p.StressLevel}/10)");
-        if (f.Count == 0) f.Add("No major risk factors detected");
+        if (p.Cholesterol >= 240) f.Add($"Kolesterol i lartë ({p.Cholesterol} mg/dL)");
+        if (p.Bmi >= 30) f.Add($"BMI obez ({p.Bmi:0.0})");
+        if (p.Smoking == 1) f.Add("Duhanpirës");
+        if (p.Diabetes == 1) f.Add("Diabetik");
+        if (systolic > 140 || diastolic > 90) f.Add($"Tension i lartë i gjakut ({systolic}/{diastolic})");
+        if (p.FamilyHistory == 1) f.Add("Histori familjare sëmundjeje zemre");
+        if (p.PreviousHeartProblems == 1) f.Add("Probleme të mëparshme me zemrën");
+        if (p.Triglycerides >= 200) f.Add($"Trigliceridë të larta ({p.Triglycerides})");
+        if (p.Age >= 65) f.Add($"Moshë e avancuar ({p.Age})");
+        if (hr > 120 || (hr > 0 && hr < 50)) f.Add($"Pulsi i parregullt ({hr} BPM)");
+        if (p.StressLevel >= 8) f.Add($"Nivel i lartë stresi ({p.StressLevel}/10)");
+        if (f.Count == 0) f.Add("Nuk u zbuluan faktorë të rëndësishëm rreziku");
         return f.Take(6).ToList();
     }
 

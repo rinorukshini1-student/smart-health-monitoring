@@ -117,7 +117,7 @@ public sealed class HealthDataStore
             return new LivePatientRow(
                 v.PatientId, v.PatientName, v.RoomNumber, age,
                 v.HeartRate, v.Temperature, v.Spo2, v.SystolicBp, v.DiastolicBp, v.RespiratoryRate,
-                risk?.Score ?? 0, risk?.Category ?? "Low Risk", AlertRules.Classify(v), v.RecordedAt);
+                risk?.Score ?? 0, risk?.Category ?? RiskScoringEngine.LowRisk, AlertRules.Classify(v), v.RecordedAt);
         }).ToArray();
     }
 
@@ -146,7 +146,7 @@ public sealed class HealthDataStore
             .Select(g => new TimeSeriesPoint(g.Key.ToLocalTime().ToString("HH:00"), g.Count())).ToArray();
 
         var recentReadingEvents = recent.OrderByDescending(v => v.RecordedAt).Take(10)
-            .Select(v => new RecentEvent("reading", v.PatientId, v.RoomNumber, $"HR {v.HeartRate} · SpO2 {v.Spo2}% · {v.Temperature:0.0}C", "INFO", v.RecordedAt)).ToArray();
+            .Select(v => new RecentEvent("reading", v.PatientId, v.RoomNumber, $"Pulsi {v.HeartRate} · SpO₂ {v.Spo2}% · {v.Temperature:0.0}°C", "INFO", v.RecordedAt)).ToArray();
         var recentAlertEvents = recentAlerts.OrderByDescending(a => a.RecordedAt).Take(10)
             .Select(a => new RecentEvent("alert", a.PatientId, a.RoomNumber, a.Message, a.Severity, a.RecordedAt)).ToArray();
 
@@ -156,7 +156,7 @@ public sealed class HealthDataStore
             active.Length == 0 ? 0 : Math.Round(active.Average(s => s.HeartRate), 0),
             active.Length == 0 ? 0 : Math.Round(active.Average(s => s.Temperature), 1),
             active.Length == 0 ? 0 : Math.Round(active.Average(s => s.Spo2), 0),
-            snapshot.Count(s => s.RiskCategory == "High Risk"),
+            snapshot.Count(s => s.RiskCategory == RiskScoringEngine.HighRisk),
             messagesPerMinute, alertsPerHour, hrTrend, tempTrend, recentReadingEvents, recentAlertEvents);
     }
 
@@ -191,7 +191,7 @@ public sealed class HealthDataStore
             Stat(ordered.Select(s => s.Temperature)),
             Stat(ordered.Select(s => (double)s.Spo2)),
             Stat(ordered.Select(s => (double)s.SystolicBp)),
-            current?.Score ?? 0, current?.Category ?? "Low Risk", current?.Factors ?? "No assessment yet",
+            current?.Score ?? 0, current?.Category ?? RiskScoringEngine.LowRisk, current?.Factors ?? "Ende pa vlerësim",
             risk.Select(r => new RiskPoint(r.RecordedAt, r.Score, r.Category)).ToArray());
     }
 

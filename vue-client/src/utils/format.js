@@ -1,11 +1,11 @@
 export function timeAgo(ts) {
   if (!ts) return '—'
   const diff = (Date.now() - new Date(ts).getTime()) / 1000
-  if (diff < 5) return 'just now'
-  if (diff < 60) return `${Math.floor(diff)}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return new Date(ts).toLocaleDateString()
+  if (diff < 5) return 'tani'
+  if (diff < 60) return `${Math.floor(diff)} sek më parë`
+  if (diff < 3600) return `${Math.floor(diff / 60)} min më parë`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} orë më parë`
+  return new Date(ts).toLocaleDateString('sq-AL')
 }
 
 export function clockTime(ts) {

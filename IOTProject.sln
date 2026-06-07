@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI.Training", "AI.Training\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vue.Api", "Vue.Api\Vue.Api.csproj", "{123E37BB-B413-41DC-8476-67C417DBBE27}"
 EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "vue-client", "vue-client\vue-client.esproj", "{B10A376A-9612-4402-989D-759A4A931F17}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,12 @@ Global
 		{123E37BB-B413-41DC-8476-67C417DBBE27}.Release|x64.Build.0 = Release|Any CPU
 		{123E37BB-B413-41DC-8476-67C417DBBE27}.Release|x86.ActiveCfg = Release|Any CPU
 		{123E37BB-B413-41DC-8476-67C417DBBE27}.Release|x86.Build.0 = Release|Any CPU
+		{B10A376A-9612-4402-989D-759A4A931F17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B10A376A-9612-4402-989D-759A4A931F17}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B10A376A-9612-4402-989D-759A4A931F17}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B10A376A-9612-4402-989D-759A4A931F17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B10A376A-9612-4402-989D-759A4A931F17}.Release|x64.ActiveCfg = Release|Any CPU
+		{B10A376A-9612-4402-989D-759A4A931F17}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
