@@ -18,7 +18,7 @@ function Row(label, value) { return { label, value } }
 const kafka = computed(() => sys.value ? [
   Row('Mesazhe të marra', sys.value.kafkaMessagesReceived.toLocaleString()),
   Row('Mesazhe / sek', mps.value.toFixed(2)),
-  Row('Tema', 'patient-vitals')
+  Row('Tema', 'health-vitals')
 ] : [])
 const spark = computed(() => sys.value ? [
   Row('Dritare të llogaritura', sys.value.sparkWindowsComputed.toLocaleString()),

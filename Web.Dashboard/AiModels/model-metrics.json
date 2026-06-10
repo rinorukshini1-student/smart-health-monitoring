@@ -1,6 +1,6 @@
 {
   "chosenModel": "Gradient Boosting",
-  "trainedAt": "2026-06-07T20:05:27.5303598+00:00",
+  "trainedAt": "2026-06-10T07:39:47.9678954+00:00",
   "rows": 8763,
   "positives": 3139,
   "metrics": [
@@ -10,7 +10,7 @@
       "precision": 0,
       "recall": 0,
       "f1": 0,
-      "auc": 0.4933
+      "auc": 0.4919
     },
     {
       "model": "Gradient Boosting",

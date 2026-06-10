@@ -1,15 +1,15 @@
 import { defineStore } from 'pinia'
 import { getConnection } from '../services/signalr'
+import { showLocalAlertNotification } from '../services/notifications'
 
-// Central live-data store. One SignalR connection feeds every page in real time.
 export const useRealtime = defineStore('realtime', {
   state: () => ({
-    status: 'connecting',          // connecting | live | down
-    vitals: {},                    // patientId -> latest VitalReadingDto
-    risk: {},                      // patientId -> latest RiskScoreDto
-    ml: {},                        // patientId -> latest MlPredictionDto
-    alerts: [],                    // newest-first, capped
-    metrics: null,                 // latest StreamMetricsDto
+    status: 'connecting',
+    vitals: {},
+    risk: {},
+    ml: {},
+    alerts: [],
+    metrics: null,
     lastEventAt: null,
     started: false
   }),
@@ -30,6 +30,7 @@ export const useRealtime = defineStore('realtime', {
       conn.on('alertReceived', (a) => {
         this.alerts.unshift(a)
         if (this.alerts.length > 300) this.alerts.length = 300
+        showLocalAlertNotification(a)
       })
 
       conn.onreconnecting(() => { this.status = 'down' })

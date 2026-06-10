@@ -16,7 +16,7 @@ public sealed record CassandraOptions
 
 public sealed record SignalROptions
 {
-    public string HubUrl { get; init; } = "http://localhost:5084/healthHub";
+    public string HubUrl { get; init; } = "http://178.105.181.143:5099/healthHub";
 }
 
 public sealed record VitalReading(

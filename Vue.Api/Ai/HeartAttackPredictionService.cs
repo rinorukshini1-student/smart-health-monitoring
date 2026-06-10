@@ -47,12 +47,14 @@ public sealed class HeartAttackPredictionService
         }
     }
 
-    public MlPredictionDto Predict(PatientProfileDto p, VitalReadingDto? vitals)
-    {
-        var hr = vitals?.HeartRate ?? 0;
-        var systolic = vitals?.SystolicBp ?? 0;
-        var diastolic = vitals?.DiastolicBp ?? 0;
+    public MlPredictionDto Predict(PatientProfileDto p, LivePatientRow? vitals) =>
+        PredictCore(p, vitals?.HeartRate ?? 0, vitals?.SystolicBp ?? 0, vitals?.DiastolicBp ?? 0);
 
+    public MlPredictionDto Predict(PatientProfileDto p, VitalReadingDto? vitals) =>
+        PredictCore(p, vitals?.HeartRate ?? 0, vitals?.SystolicBp ?? 0, vitals?.DiastolicBp ?? 0);
+
+    private MlPredictionDto PredictCore(PatientProfileDto p, int hr, int systolic, int diastolic)
+    {
         var input = new HeartModelInput
         {
             Age = p.Age,

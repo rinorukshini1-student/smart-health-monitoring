@@ -1,6 +1,7 @@
-// Thin REST client. All paths are relative so Vite's dev proxy (and the backend in production) resolve them.
+import { apiUrl } from '../config'
+
 async function get(path) {
-  const res = await fetch(path, { headers: { Accept: 'application/json' } })
+  const res = await fetch(apiUrl(path), { headers: { Accept: 'application/json' } })
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`)
   return res.json()
 }
@@ -27,5 +28,11 @@ export const api = {
   aiPatient: (id) => get(`/api/ai/patient/${id}`),
   aiHistory: (id) => get(`/api/ai/history/${id}`),
   aiFactors: () => get('/api/ai/factors'),
-  aiMetrics: () => get('/api/ai/metrics')
+  aiMetrics: () => get('/api/ai/metrics'),
+  registerPush: (token, platform) =>
+    fetch(apiUrl('/api/push/register'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, platform })
+    })
 }

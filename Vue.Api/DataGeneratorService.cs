@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Vue.Api.Ai;
 using Vue.Api.Hubs;
+using Vue.Api.Services;
 
 namespace Vue.Api;
 
@@ -11,14 +12,16 @@ public sealed class DataGeneratorService : BackgroundService
     private readonly HealthDataStore _store;
     private readonly HeartAttackPredictionService _predictor;
     private readonly IHubContext<HealthHub> _hub;
+    private readonly FirebasePushService _push;
     private readonly ILogger<DataGeneratorService> _logger;
     private readonly Random _random = new();
 
-    public DataGeneratorService(HealthDataStore store, HeartAttackPredictionService predictor, IHubContext<HealthHub> hub, ILogger<DataGeneratorService> logger)
+    public DataGeneratorService(HealthDataStore store, HeartAttackPredictionService predictor, IHubContext<HealthHub> hub, FirebasePushService push, ILogger<DataGeneratorService> logger)
     {
         _store = store;
         _predictor = predictor;
         _hub = hub;
+        _push = push;
         _logger = logger;
     }
 
@@ -47,6 +50,7 @@ public sealed class DataGeneratorService : BackgroundService
                     {
                         _store.AddAlert(alert);
                         await _hub.Clients.All.SendAsync("alertReceived", alert, stoppingToken);
+                        await _push.NotifyAlertAsync(alert, stoppingToken);
                     }
                     count++;
                 }

@@ -2,3 +2,11 @@ node_modules
 dist
 .vite
 *.local
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+.env
+.env.production
+google-services.json
+firebase-service-account.json
