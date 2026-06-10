@@ -15,6 +15,9 @@ var kafka = configuration.GetSection("Kafka").Get<KafkaOptions>() ?? new KafkaOp
 var cassandraOptions = configuration.GetSection("Cassandra").Get<CassandraOptions>() ?? new CassandraOptions();
 var signalROptions = configuration.GetSection("SignalR").Get<SignalROptions>() ?? new SignalROptions();
 
+// Spark needs a durable checkpoint dir to track Kafka offsets across restarts (exactly-once semantics).
+var checkpointRoot = configuration["Spark:CheckpointDir"] ?? "/tmp/spark-checkpoints";
+
 await using var healthRepository = await CassandraHealthRepository.CreateAsync(cassandraOptions);
 await using var hubConnection = new HubConnectionBuilder()
     .WithUrl(signalROptions.HubUrl)
@@ -88,6 +91,7 @@ var vitals = rawKafka
 // Per-reading processing: persistence, alerts and AI risk scoring.
 var perReadingQuery = vitals
     .WriteStream()
+    .Option("checkpointLocation", $"{checkpointRoot}/per-reading")
     .ForeachBatch((batch, batchId) =>
     {
         ProcessBatchAsync(batch, batchId, hubConnection, healthRepository, aggregator, metrics).GetAwaiter().GetResult();
@@ -110,6 +114,7 @@ var windowed = vitals
 var windowQuery = windowed
     .WriteStream()
     .OutputMode("update")
+    .Option("checkpointLocation", $"{checkpointRoot}/window")
     .ForeachBatch((batch, batchId) =>
     {
         StoreWindowBatchAsync(batch, healthRepository, metrics).GetAwaiter().GetResult();

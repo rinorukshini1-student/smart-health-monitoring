@@ -108,12 +108,19 @@ services:
       dockerfile: Streaming.App/Dockerfile
     container_name: smart-health-streaming
     environment:
+      # STREAMING_MODE=spark -> real Apache Spark via spark-submit (default).
+      # STREAMING_MODE=direct -> lightweight Confluent Kafka consumer fallback.
+      STREAMING_MODE: spark
+      SPARK_MASTER: "local[*]"
+      Spark__CheckpointDir: /tmp/spark-checkpoints
       Kafka__BootstrapServers: kafka:29092
       Kafka__Topic: health-vitals
       Cassandra__ContactPoint: cassandra
       Cassandra__Port: "9042"
       Cassandra__Keyspace: smart_health
       SignalR__HubUrl: http://vue-api:5099/healthHub
+    volumes:
+      - spark-checkpoints:/tmp/spark-checkpoints
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -140,3 +147,4 @@ services:
 
 volumes:
   cassandra-data:
+  spark-checkpoints:

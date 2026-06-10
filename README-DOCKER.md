@@ -44,7 +44,7 @@ Browser → vue-client (nginx :5173)
 |-----------|-------|------------|
 | `vue-client` | **5173** | Vue 3 SPA (nginx) |
 | `vue-api` | 5099 | .NET API + SignalR hub |
-| `streaming` | — | Kafka → Cassandra → SignalR |
+| `streaming` | — | **Apache Spark Structured Streaming** (spark-submit) → Kafka → Cassandra → SignalR |
 | `simulator` | — | Gjeneron vitals |
 | `kafka` | 9092 | Message broker |
 | `cassandra` | 9042 | Database |
@@ -66,6 +66,30 @@ docker compose up -d --build zookeeper kafka kafka-init cassandra cassandra-init
 ```
 
 Për të dhëna live, nis edhe `streaming` dhe `simulator`.
+
+## Streaming: Spark vs Direct
+
+Shërbimi `streaming` ekzekutohet si **Apache Spark real** përmes `spark-submit` (JVM bridge i
+Microsoft.Spark / .NET for Apache Spark). Imazhi përmban Java 11, Apache Spark 3.2.1 dhe konektorin
+`spark-sql-kafka-0-10`.
+
+| Variabël | Vlera | Përshkrimi |
+|----------|-------|------------|
+| `STREAMING_MODE` | `spark` (default) | Spark Structured Streaming me `spark-submit` |
+| `STREAMING_MODE` | `direct` | Fallback i lehtë: konsumues Confluent Kafka pa JVM |
+| `SPARK_MASTER` | `local[*]` | Master i Spark (local me të gjitha bërthamat) |
+| `Spark__CheckpointDir` | `/tmp/spark-checkpoints` | Checkpoint për offset-et e Kafka (exactly-once) |
+
+Spark dritaret rrëshqitëse (5 min, slide 1 min) dhe filtrimi ekzekutohen brenda Spark; rezultatet
+ruhen në Cassandra (`vitals_window_agg`). Ndryshimi i modës:
+
+```powershell
+# Përkohësisht në direct mode
+docker compose run -e STREAMING_MODE=direct streaming
+```
+
+> Shënim: ndërtimi i parë i imazhit `streaming` shkarkon Apache Spark + jar-et e Kafka (~300 MB),
+> prandaj kërkon internet dhe pak më shumë kohë.
 
 ## Build manual (pa Docker)
 
