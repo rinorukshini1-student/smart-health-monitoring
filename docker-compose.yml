@@ -29,6 +29,7 @@ services:
     container_name: smart-health-kafka-init
     depends_on:
       - kafka
+    restart: "no"
     command: >
       bash -c "
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic health-vitals --partitions 3 --replication-factor 1
@@ -46,6 +47,93 @@ services:
     volumes:
       - cassandra-data:/var/lib/cassandra
       - ./cassandra-schema.cql:/schema/cassandra-schema.cql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  cassandra-init:
+    image: cassandra:4.1
+    container_name: smart-health-cassandra-init
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra-schema.cql:/schema/cassandra-schema.cql:ro
+    restart: "no"
+    entrypoint: ["cqlsh", "cassandra", "-f", "/schema/cassandra-schema.cql"]
+
+  vue-api:
+    build:
+      context: .
+      dockerfile: Vue.Api/Dockerfile
+    container_name: smart-health-vue-api
+    ports:
+      - "5099:5099"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:5099
+      Cassandra__ContactPoint: cassandra
+      DataGeneration__Enabled: "false"
+      Firebase__Enabled: "true"
+      Firebase__ProjectId: fiek-240db
+      Firebase__ServiceAccountPath: firebase-service-account.json
+    volumes:
+      - ./Vue.Api/firebase-service-account.json:/app/firebase-service-account.json:ro
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  vue-client:
+    build:
+      context: .
+      dockerfile: vue-client/Dockerfile
+    container_name: smart-health-vue-client
+    ports:
+      - "5173:80"
+    depends_on:
+      vue-api:
+        condition: service_started
+    restart: unless-stopped
+
+  streaming:
+    build:
+      context: .
+      dockerfile: Streaming.App/Dockerfile
+    container_name: smart-health-streaming
+    environment:
+      Kafka__BootstrapServers: kafka:29092
+      Kafka__Topic: health-vitals
+      Cassandra__ContactPoint: cassandra
+      Cassandra__Port: "9042"
+      Cassandra__Keyspace: smart_health
+      SignalR__HubUrl: http://vue-api:5099/healthHub
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      cassandra-init:
+        condition: service_completed_successfully
+      vue-api:
+        condition: service_started
+    restart: unless-stopped
+
+  simulator:
+    build:
+      context: .
+      dockerfile: Simulator.App/Dockerfile
+    container_name: smart-health-simulator
+    environment:
+      Kafka__BootstrapServers: kafka:29092
+      Kafka__Topic: health-vitals
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      streaming:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   cassandra-data:

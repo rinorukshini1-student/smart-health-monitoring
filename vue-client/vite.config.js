@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget = env.VITE_API_BASE_URL || LIVE_API
   const isMobileBuild = mode === 'mobile'
+  const isDockerBuild = mode === 'docker'
 
   return {
     plugins: [vue()],
@@ -19,7 +20,7 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
-      outDir: isMobileBuild ? 'dist' : '../Vue.Api/wwwroot',
+      outDir: isMobileBuild || isDockerBuild ? 'dist' : '../Vue.Api/wwwroot',
       emptyOutDir: true
     }
   }
