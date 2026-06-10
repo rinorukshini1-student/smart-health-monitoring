@@ -6,3 +6,5 @@ obj/
 *.user
 *.log
 download.pdf
+**/firebase-service-account.json
+**/google-services.json
