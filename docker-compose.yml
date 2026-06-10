@@ -61,9 +61,12 @@ services:
       cassandra:
         condition: service_healthy
     volumes:
-      - ./cassandra-schema.cql:/schema/cassandra-schema.cql:ro
+      - ./cassandra-schema-init.cql:/schema/cassandra-schema-init.cql:ro
+      - ./docker/cassandra-init.sh:/schema/cassandra-init.sh:ro
+    environment:
+      CASSANDRA_HOST: cassandra
     restart: "no"
-    entrypoint: ["cqlsh", "cassandra", "-f", "/schema/cassandra-schema.cql"]
+    entrypoint: ["/bin/bash", "/schema/cassandra-init.sh"]
 
   vue-api:
     build:
