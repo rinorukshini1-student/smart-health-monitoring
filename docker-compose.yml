@@ -52,15 +52,17 @@ services:
       CASSANDRA_CLUSTER_NAME: SmartHealthCluster
       CASSANDRA_DC: datacenter1
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 128M
     volumes:
       - cassandra-data:/var/lib/cassandra
       - ./cassandra-schema.cql:/schema/cassandra-schema.cql:ro
     healthcheck:
-      test: ["CMD-SHELL", "cqlsh -e 'describe cluster' || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 20
-      start_period: 60s
+      test: ["CMD-SHELL", "nodetool status | grep -q '^UN'"]
+      interval: 20s
+      timeout: 15s
+      retries: 30
+      start_period: 120s
 
   cassandra-init:
     image: cassandra:4.1
