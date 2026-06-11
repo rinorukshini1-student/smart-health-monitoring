@@ -13,15 +13,17 @@ public sealed class DataGeneratorService : BackgroundService
     private readonly HeartAttackPredictionService _predictor;
     private readonly IHubContext<HealthHub> _hub;
     private readonly FirebasePushService _push;
+    private readonly SmartAlertEngine _alertEngine;
     private readonly ILogger<DataGeneratorService> _logger;
     private readonly Random _random = new();
 
-    public DataGeneratorService(HealthDataStore store, HeartAttackPredictionService predictor, IHubContext<HealthHub> hub, FirebasePushService push, ILogger<DataGeneratorService> logger)
+    public DataGeneratorService(HealthDataStore store, HeartAttackPredictionService predictor, IHubContext<HealthHub> hub, FirebasePushService push, SmartAlertEngine alertEngine, ILogger<DataGeneratorService> logger)
     {
         _store = store;
         _predictor = predictor;
         _hub = hub;
         _push = push;
+        _alertEngine = alertEngine;
         _logger = logger;
     }
 
@@ -46,7 +48,7 @@ public sealed class DataGeneratorService : BackgroundService
                     _store.AddRisk(risk);
                     await _hub.Clients.All.SendAsync("riskReceived", risk, stoppingToken);
 
-                    foreach (var alert in AlertRules.Evaluate(reading))
+                    foreach (var alert in _alertEngine.Evaluate(reading))
                     {
                         _store.AddAlert(alert);
                         await _hub.Clients.All.SendAsync("alertReceived", alert, stoppingToken);
@@ -93,7 +95,7 @@ public sealed class DataGeneratorService : BackgroundService
                 var reading = CreateReading(patient, ts);
                 _store.AddReading(reading);
                 _store.AddRisk(RiskScoringEngine.Assess(reading, patient.Age));
-                foreach (var alert in AlertRules.Evaluate(reading)) _store.AddAlert(alert);
+                foreach (var alert in _alertEngine.Evaluate(reading)) _store.AddAlert(alert);
             }
         }
 

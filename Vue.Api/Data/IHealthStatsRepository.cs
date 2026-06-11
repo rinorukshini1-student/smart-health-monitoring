@@ -24,5 +24,7 @@ public interface IHealthStatsRepository
 
     Task StoreMlPredictionAsync(MlPredictionDto prediction, CancellationToken cancellationToken);
 
+    Task StoreAlertAsync(AlertMessageDto alert, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<MlPredictionPoint>> GetMlPredictionHistoryAsync(string patientId, CancellationToken cancellationToken);
 }

@@ -69,17 +69,7 @@ const backend = computed(() => sys.value ? [
       </Panel>
     </div>
 
-    <Panel title="Përmbledhje e Performancës">
-      <p class="muted" style="line-height:1.6;margin:0;">
-        <strong>Rruga e të dhënave IoT</strong> (Sensor → Kafka → Spark → Cassandra → API → Paneli)
-        po përpunon <strong>{{ mps.toFixed(1) }} mesazhe/sekond</strong> me një përgjigje mesatare të API-së prej
-        <strong>{{ sys.apiAverageResponseMs.toFixed(1) }} ms</strong> dhe vonesë përpunimi prej
-        <strong>{{ sys.sparkAvgProcessingMs.toFixed(1) }} ms</strong>. Gjithsej janë ruajtur
-        <strong>{{ sys.kafkaMessagesReceived.toLocaleString() }}</strong> lexime dhe
-        <strong>{{ sys.storedAlerts.toLocaleString() }}</strong> alarme.
-        Nuk u zbuluan pengesa — shpejtësia dhe vonesa janë brenda kufijve të shëndetshëm.
-      </p>
-    </Panel>
+
   </div>
   <div v-else class="empty">Duke ngarkuar metrikat e sistemit…</div>
 </template>

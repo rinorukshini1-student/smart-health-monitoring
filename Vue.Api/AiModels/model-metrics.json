@@ -1,8 +1,10 @@
 {
   "chosenModel": "Gradient Boosting",
-  "trainedAt": "2026-06-04T20:06:26.9093163+00:00",
+  "trainedAt": "2026-06-11T11:34:13.1615881+00:00",
   "rows": 8763,
   "positives": 3139,
+  "selectionMetric": "F1Score",
+  "classificationThreshold": 0.5,
   "metrics": [
     {
       "model": "Logistic Regression",
@@ -10,7 +12,7 @@
       "precision": 0,
       "recall": 0,
       "f1": 0,
-      "auc": 0.4933
+      "auc": 0.4919
     },
     {
       "model": "Gradient Boosting",
@@ -29,6 +31,27 @@
       "auc": 0.5022
     }
   ],
+  "confusionMatrix": {
+    "model": "Gradient Boosting",
+    "counts": [
+      [
+        117,
+        495
+      ],
+      [
+        221,
+        971
+      ]
+    ],
+    "perClassPrecision": [
+      0.3462,
+      0.6623
+    ],
+    "perClassRecall": [
+      0.1912,
+      0.8146
+    ]
+  },
   "topFactors": [
     {
       "factor": "BMI",

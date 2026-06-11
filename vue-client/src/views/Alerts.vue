@@ -68,10 +68,9 @@ const counts = computed(() => ({
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>ID Alarmi</th><th>Pacienti</th><th>Lloji</th><th>Severiteti</th><th>Vlera</th><th>Mesazhi</th><th>Koha</th></tr></thead>
+          <thead><tr><th>Pacienti</th><th>Lloji</th><th>Niveli i rrezikut</th><th>Vlera</th><th>Mesazhi</th><th>Koha</th></tr></thead>
           <tbody>
             <tr v-for="a in filtered.slice(0, 200)" :key="a.alertId">
-              <td class="mono muted">{{ a.alertId.slice(0, 8) }}</td>
               <td><strong>{{ a.patientId }}</strong> <span class="muted">Dh {{ a.roomNumber }}</span></td>
               <td>{{ translateAlertType(a.alertType) }}</td>
               <td><span class="badge" :class="severityClass(a.severity)">{{ translateSeverity(a.severity) }}</span></td>

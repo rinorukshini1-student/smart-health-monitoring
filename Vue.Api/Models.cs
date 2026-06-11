@@ -204,6 +204,15 @@ public sealed record MlPredictionDto(
 
 public sealed record MlPredictionPoint(DateTimeOffset Timestamp, double RiskProbability, string RiskCategory);
 
+// Result of an on-demand heart-attack risk prediction (POST /api/ai/predict).
+public sealed record HeartRiskResult(
+    bool PredictedLabel,
+    float Probability,
+    float Score,
+    string RiskLevel,
+    string Recommendation,
+    List<string> MainFactors);
+
 // Patient definition with static clinical profile used by the data generator.
 public sealed record PatientDefinition(
     string PatientId, string PatientName, string RoomNumber, int Age, string Sex,

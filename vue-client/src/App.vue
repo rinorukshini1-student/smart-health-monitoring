@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRealtime } from './stores/realtime'
 import LaIcon from './components/LaIcon.vue'
+import logoUrl from './assets/logo.png'
 
 const rt = useRealtime()
 const route = useRoute()
@@ -11,22 +12,24 @@ const menuOpen = ref(false)
 const nav = [
   { to: '/', icon: 'la-chart-pie', label: 'Dashboard' },
   { to: '/live', icon: 'la-heartbeat', label: 'Monitorimi në kohë reale' },
-  { to: '/patients', icon: 'la-user-md', label: 'Detajet e Pacientit' },
-  { to: '/alerts', icon: 'la-bell', label: 'Qendra e Alarmeve' },
+  { to: '/rooms', icon: 'la-door-open', label: 'Dhomat' },
+  { to: '/patients', icon: 'la-user-md', label: 'Detajet e pacientit' },
+    { to: '/alerts', icon: 'la-bell', label: 'Alarmet' },
   { to: '/analytics', icon: 'la-chart-line', label: 'Analitika' },
   { to: '/ai', icon: 'la-robot', label: 'Parashikimet AI' },
-  { to: '/system', icon: 'la-stethoscope', label: 'Shëndeti i Sistemit' }
+  { to: '/system', icon: 'la-stethoscope', label: 'Shëndeti i sistemit' }
 ]
 
 const title = computed(() => route.meta.title ?? 'Paneli')
 const subtitle = computed(() => ({
-  'Përmbledhje': 'Ndërgjegjësim situacional në kohë reale për të gjithë pacientët e monitoruar',
-  'Monitorimi në kohë Reale': 'Vitalë të transmetuara me klasifikim automatik të statusit',
-  'Detajet e Pacientit': 'Vitalë për pacient, statistika dhe vlerësimi i rrezikut AI',
-  'Qendra e Alarmeve': 'Alarme klinike të gjeneruara nga shtresa e përpunimit',
-  'Analitika': 'Agregime në dritare kohore dhe renditje sipas rrezikut',
-  'Parashikimet AI': 'Parashikimi i rrezikut të infarktit (ML.NET)',
-  'Shëndeti i Sistemit': 'Performanca e rrugës së të dhënave IoT (Sensor → Kafka → Spark → Cassandra → API)'
+  'Përmbledhje': '',
+  'Monitorimi në kohë Reale': '',
+  'Dhomat': '',
+  'Detajet e pacientit': '',
+  'Alarmet': '',
+  'Analitika': '',
+  'Parashikimet AI': 'Parashikimi i rrezikut të infarktit',
+  'Shëndeti i sistemit': ''
 }[title.value] ?? ''))
 
 const connLabel = computed(() => ({
@@ -43,7 +46,7 @@ onMounted(() => rt.init())
     <div v-if="menuOpen" class="scrim" @click="menuOpen = false"></div>
     <aside class="sidebar" :class="{ open: menuOpen }">
       <div class="brand">
-        <div class="logo"><LaIcon icon="la-hospital" /></div>
+        <div class="logo"><img :src="logoUrl" alt="Smart Health" /></div>
         <div>
           <h1>Smart Health</h1>
           <!--<small>Monitorimi IoT · Vue</small>-->

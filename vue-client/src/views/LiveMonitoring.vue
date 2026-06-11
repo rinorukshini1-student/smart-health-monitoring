@@ -1,18 +1,23 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../services/api'
-import { useRealtime } from '../stores/realtime'
+import { ensureHubStarted, subscribeVitals, subscribeRisk } from '../services/realtimeHub'
 import Panel from '../components/Panel.vue'
 import { classifyVitals, statusClass, timeAgo } from '../utils/format'
 import { translateStatus, filterLabels } from '../utils/i18n'
 
-const rt = useRealtime()
 const router = useRouter()
 const search = ref('')
 const statusFilter = ref('all')
 const sortKey = ref('roomNumber')
 const sortDir = ref('asc')
+
+const patientVitals = ref({})
+const patientRisk = ref({})
+let pollTimer = null
+let unsubVitals = null
+let unsubRisk = null
 
 const statusFilters = [
   { key: 'all', label: filterLabels.all },
@@ -21,23 +26,52 @@ const statusFilters = [
   { key: 'critical', label: filterLabels.critical }
 ]
 
-onMounted(async () => {
-  try {
-    const rows = await api.live()
-    for (const r of rows) {
-      rt.vitals[r.patientId] = {
-        patientId: r.patientId, patientName: r.patientName, roomNumber: r.roomNumber, age: r.age,
-        heartRate: r.heartRate, spo2: r.spo2, temperature: r.temperature, systolicBp: r.systolicBp,
-        diastolicBp: r.diastolicBp, respiratoryRate: r.respiratoryRate, recordedAt: r.lastUpdate
-      }
-      rt.risk[r.patientId] = { score: r.riskScore, category: r.riskCategory }
+function onVitals(v) {
+  patientVitals.value = { ...patientVitals.value, [v.patientId]: v }
+}
+
+function onRisk(r) {
+  patientRisk.value = { ...patientRisk.value, [r.patientId]: { score: r.score, category: r.category } }
+}
+
+function seedFromLiveRows(rows) {
+  const vitals = { ...patientVitals.value }
+  const risks = { ...patientRisk.value }
+  for (const r of rows) {
+    vitals[r.patientId] = {
+      patientId: r.patientId, patientName: r.patientName, roomNumber: r.roomNumber, age: r.age,
+      heartRate: r.heartRate, spo2: r.spo2, temperature: r.temperature, systolicBp: r.systolicBp,
+      diastolicBp: r.diastolicBp, respiratoryRate: r.respiratoryRate, recordedAt: r.lastUpdate
     }
-  } catch (e) { /* SignalR will populate */ }
+    risks[r.patientId] = { score: r.riskScore, category: r.riskCategory }
+  }
+  patientVitals.value = vitals
+  patientRisk.value = risks
+}
+
+async function refreshFromApi() {
+  try {
+    seedFromLiveRows(await api.live())
+  } catch { /* keep last snapshot */ }
+}
+
+onMounted(async () => {
+  await ensureHubStarted()
+  unsubVitals = subscribeVitals(onVitals)
+  unsubRisk = subscribeRisk(onRisk)
+  await refreshFromApi()
+  pollTimer = setInterval(refreshFromApi, 3000)
 })
 
-const rows = computed(() => rt.vitalsList.map(v => {
+onUnmounted(() => {
+  unsubVitals?.()
+  unsubRisk?.()
+  if (pollTimer) clearInterval(pollTimer)
+})
+
+const rows = computed(() => Object.values(patientVitals.value).map(v => {
   const status = classifyVitals(v)
-  return { ...v, status, risk: rt.risk[v.patientId]?.score ?? 0 }
+  return { ...v, status, risk: patientRisk.value[v.patientId]?.score ?? 0 }
 }))
 
 const filtered = computed(() => {
@@ -45,7 +79,7 @@ const filtered = computed(() => {
   if (statusFilter.value !== 'all') list = list.filter(r => r.status.toLowerCase() === statusFilter.value)
   if (search.value.trim()) {
     const q = search.value.toLowerCase()
-    list = list.filter(r => r.patientId.toLowerCase().includes(q) || (r.patientName || '').toLowerCase().includes(q) || (r.roomNumber || '').includes(q))
+    list = list.filter(r => r.patientId.toLowerCase().includes(q) || (r.patientName || '').toLowerCase().includes(q) || String(r.roomNumber || '').includes(q))
   }
   const dir = sortDir.value === 'asc' ? 1 : -1
   return [...list].sort((a, b) => {
@@ -78,7 +112,7 @@ function sortBy(key) {
       <div class="kpi"><span class="label">Kritik</span><span class="value" style="color:#dc2626">{{ counts.critical }}</span></div>
     </div>
 
-    <Panel title="Vitalët e Pacientëve në Kohë Reale" hint="përditësohen automatikisht përmes SignalR">
+    <Panel>
       <div class="controls" style="margin-bottom:14px;">
         <input class="search" type="search" v-model="search" placeholder="Kërko pacient ose dhomë…" />
         <button v-for="s in statusFilters" :key="s.key" class="chip"

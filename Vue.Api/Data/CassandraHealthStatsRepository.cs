@@ -125,7 +125,7 @@ public sealed class CassandraHealthStatsRepository : IHealthStatsRepository, IAs
                     return new LivePatientRow(
                         v.PatientId, v.PatientName, v.RoomNumber, v.Age,
                         v.HeartRate, v.Temperature, v.Spo2, v.SystolicBp, v.DiastolicBp, v.RespiratoryRate,
-                        r?.Score ?? 0, r?.Category ?? "Low Risk",
+                        r?.Score ?? 0, r?.Category ?? RiskScoringEngine.LowRisk,
                         Classify(v), v.Timestamp);
                 })
                 .ToArray();
@@ -151,7 +151,7 @@ public sealed class CassandraHealthStatsRepository : IHealthStatsRepository, IAs
             var avgHr = active.Length == 0 ? 0 : Math.Round(active.Average(s => s.HeartRate), 0);
             var avgTemp = active.Length == 0 ? 0 : Math.Round(active.Average(s => s.Temperature), 1);
             var avgSpo2 = active.Length == 0 ? 0 : Math.Round(active.Average(s => s.Spo2), 0);
-            var highRisk = snapshot.Count(s => s.RiskCategory == "High Risk");
+            var highRisk = snapshot.Count(s => s.RiskCategory == RiskScoringEngine.HighRisk || s.RiskCategory == "High Risk");
 
             var recentVitals = await ScanRecentVitalsAsync(session, TimeSpan.FromMinutes(30), 1000);
             var recentAlerts = await ScanRecentAlertsAsync(session, TimeSpan.FromHours(24), 2000);
@@ -281,8 +281,8 @@ public sealed class CassandraHealthStatsRepository : IHealthStatsRepository, IAs
                 Stat(ordered.Select(s => (double)s.Spo2)),
                 Stat(ordered.Select(s => (double)s.SystolicBp)),
                 current?.Score ?? 0,
-                current?.Category ?? "Low Risk",
-                current?.Factors ?? "No assessment yet",
+                current?.Category ?? RiskScoringEngine.LowRisk,
+                current?.Factors ?? "Ende pa vlerësim",
                 risk.Select(r => new RiskPoint(r.Timestamp, r.Score, r.Category)).ToArray());
         }
         catch (Exception ex)
@@ -497,6 +497,27 @@ public sealed class CassandraHealthStatsRepository : IHealthStatsRepository, IAs
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not store ML prediction for {PatientId}.", p.PatientId);
+        }
+    }
+
+    public async Task StoreAlertAsync(AlertMessageDto a, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var session = await _session.Value;
+            await session.ExecuteAsync(new SimpleStatement(
+                """
+                INSERT INTO alerts_log (room_number, alert_day, recorded_at, alert_id, patient_id, alert_type, severity, message, value,
+                  heart_rate, spo2, temperature, systolic_bp, diastolic_bp, respiratory_rate)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                a.RoomNumber, ToCassandraDate(a.RecordedAt), a.RecordedAt.UtcDateTime, a.AlertId, a.PatientId,
+                a.AlertType, a.Severity, a.Message, a.Value,
+                a.HeartRate, a.Spo2, a.Temperature, a.SystolicBp, a.DiastolicBp, a.RespiratoryRate));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not store alert for {PatientId}.", a.PatientId);
         }
     }
 

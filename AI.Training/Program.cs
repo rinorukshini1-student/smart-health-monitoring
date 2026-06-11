@@ -17,7 +17,7 @@ var datasetPath = args.Length > 0
 
 var outputDir = args.Length > 1
     ? args[1]
-    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Web.Dashboard", "AiModels");
+    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Vue.Api", "AiModels");
 
 datasetPath = Path.GetFullPath(datasetPath);
 outputDir = Path.GetFullPath(outputDir);
@@ -100,12 +100,21 @@ Console.WriteLine($"Saved model to {modelPath}");
 // Model-agnostic permutation feature importance over original features.
 var importance = ComputePermutationImportance(ml, fullModel, records.Where((_, i) => i % 5 == 0).ToList());
 
+// Confusion matrix for the selected model (actual rows x predicted columns).
+var confusion = best.Metrics.ConfusionMatrix;
+var confusionCounts = confusion.Counts.Select(row => row.Select(v => (int)v).ToArray()).ToArray();
+
+// Classification threshold applied on the calibrated probability (ML.NET default = 0.5).
+const double classificationThreshold = 0.5;
+
 var metadata = new
 {
     chosenModel = best.Name,
     trainedAt = DateTimeOffset.UtcNow,
     rows = records.Count,
     positives = records.Count(r => r.Label),
+    selectionMetric = "F1Score",
+    classificationThreshold,
     metrics = results.Select(r => new
     {
         model = r.Name,
@@ -115,6 +124,13 @@ var metadata = new
         f1 = Math.Round(r.Metrics.F1Score, 4),
         auc = Math.Round(r.Metrics.AreaUnderRocCurve, 4)
     }),
+    confusionMatrix = new
+    {
+        model = best.Name,
+        counts = confusionCounts,
+        perClassPrecision = confusion.PerClassPrecision.Select(v => Math.Round(v, 4)).ToArray(),
+        perClassRecall = confusion.PerClassRecall.Select(v => Math.Round(v, 4)).ToArray()
+    },
     topFactors = importance
         .OrderByDescending(kv => kv.Value)
         .Take(10)

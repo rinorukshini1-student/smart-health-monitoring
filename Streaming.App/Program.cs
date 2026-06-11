@@ -27,9 +27,10 @@ await using var hubConnection = new HubConnectionBuilder()
 await StartSignalRWithRetryAsync(hubConnection, signalROptions.HubUrl);
 Console.WriteLine($"Connected to SignalR hub: {signalROptions.HubUrl}");
 
-// Shared processing context (window aggregator + live metrics) for both run modes.
+// Shared processing context (window aggregator + live metrics + smart alerting) for both run modes.
 var aggregator = new WindowAggregator();
 var metrics = new MetricsCollector();
+var alertEngine = new SmartAlertEngine();
 
 // Periodically push a metrics snapshot to the System Health dashboard page.
 _ = Task.Run(async () =>
@@ -50,7 +51,7 @@ _ = Task.Run(async () =>
 
 if (!args.Contains("--spark", StringComparer.OrdinalIgnoreCase))
 {
-    await RunDirectKafkaModeAsync(kafka, hubConnection, healthRepository, aggregator, metrics);
+    await RunDirectKafkaModeAsync(kafka, hubConnection, healthRepository, aggregator, metrics, alertEngine);
     return;
 }
 
@@ -94,7 +95,7 @@ var perReadingQuery = vitals
     .Option("checkpointLocation", $"{checkpointRoot}/per-reading")
     .ForeachBatch((batch, batchId) =>
     {
-        ProcessBatchAsync(batch, batchId, hubConnection, healthRepository, aggregator, metrics).GetAwaiter().GetResult();
+        ProcessBatchAsync(batch, batchId, hubConnection, healthRepository, aggregator, metrics, alertEngine).GetAwaiter().GetResult();
     })
     .Start();
 
@@ -129,7 +130,8 @@ static async Task RunDirectKafkaModeAsync(
     HubConnection hubConnection,
     CassandraHealthRepository healthRepository,
     WindowAggregator aggregator,
-    MetricsCollector metrics)
+    MetricsCollector metrics,
+    SmartAlertEngine alertEngine)
 {
     var config = new ConsumerConfig
     {
@@ -153,7 +155,7 @@ static async Task RunDirectKafkaModeAsync(
             continue;
         }
 
-        await ProcessReadingAsync(reading, hubConnection, healthRepository, aggregator, metrics, "Direct");
+        await ProcessReadingAsync(reading, hubConnection, healthRepository, aggregator, metrics, alertEngine, "Direct");
     }
 }
 
@@ -188,7 +190,8 @@ static async Task ProcessBatchAsync(
     HubConnection hubConnection,
     CassandraHealthRepository healthRepository,
     WindowAggregator aggregator,
-    MetricsCollector metrics)
+    MetricsCollector metrics,
+    SmartAlertEngine alertEngine)
 {
     var stopwatch = Stopwatch.StartNew();
     var count = 0;
@@ -196,7 +199,7 @@ static async Task ProcessBatchAsync(
     foreach (var row in batch.Collect())
     {
         var reading = VitalReading.From(row);
-        await ProcessReadingAsync(reading, hubConnection, healthRepository, aggregator, metrics, $"Batch {batchId}");
+        await ProcessReadingAsync(reading, hubConnection, healthRepository, aggregator, metrics, alertEngine, $"Batch {batchId}");
         count++;
     }
 
@@ -234,6 +237,7 @@ static async Task ProcessReadingAsync(
     CassandraHealthRepository healthRepository,
     WindowAggregator aggregator,
     MetricsCollector metrics,
+    SmartAlertEngine alertEngine,
     string source)
 {
     // 1. Persist the raw reading and keep the patient registry up to date.
@@ -252,8 +256,8 @@ static async Task ProcessReadingAsync(
     await healthRepository.InsertRiskAsync(risk);
     await hubConnection.InvokeAsync("PublishRisk", risk);
 
-    // 4. Alert rule evaluation - one alert per breached threshold.
-    var alerts = AlertRules.Evaluate(reading);
+    // 4. Smart alert evaluation - sustained-breach + cooldown + stabilization (no per-reading spam).
+    var alerts = alertEngine.Evaluate(reading);
     foreach (var alert in alerts)
     {
         await healthRepository.InsertAlertAsync(alert);

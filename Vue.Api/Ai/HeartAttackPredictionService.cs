@@ -15,6 +15,14 @@ public sealed class HeartAttackPredictionService
     public string ChosenModel { get; private set; } = "Unavailable";
     public JsonDocument? Metadata { get; private set; }
 
+    // Risk-level thresholds for the on-demand HeartRiskResult API.
+    public const double HighRiskThreshold = 0.70;
+    public const double MediumRiskThreshold = 0.40;
+
+    public const string HighRisk = "High Risk";
+    public const string MediumRisk = "Medium Risk";
+    public const string LowRisk = "Low Risk";
+
     public HeartAttackPredictionService(IWebHostEnvironment env, ILogger<HeartAttackPredictionService> logger)
     {
         _logger = logger;
@@ -97,6 +105,96 @@ public sealed class HeartAttackPredictionService
 
         return new MlPredictionDto(p.PatientId, p.PatientName, p.RoomNumber, Math.Round(probability, 4),
             category, "Rrezik infarkti", BuildTopFactors(p, hr, systolic, diastolic), hr, systolic, diastolic, DateTimeOffset.UtcNow);
+    }
+
+    // On-demand prediction from a full clinical record (POST /api/ai/predict).
+    // Throws InvalidOperationException when the model is not loaded so the API can
+    // surface a clear error message instead of silently falling back to a heuristic.
+    public HeartRiskResult PredictRisk(HeartModelInput input)
+    {
+        if (!ModelLoaded || _engine is null)
+        {
+            throw new InvalidOperationException("Modeli AI nuk është i ngarkuar.");
+        }
+
+        if (string.IsNullOrWhiteSpace(input.Sex)) input.Sex = "Unknown";
+        if (string.IsNullOrWhiteSpace(input.Diet)) input.Diet = "Average";
+
+        HeartModelOutput output;
+        lock (_lock)
+        {
+            output = _engine.Predict(input);
+        }
+
+        var probability = (float)Math.Clamp(output.Probability, 0, 1);
+        var level = RiskLevelFor(probability);
+
+        return new HeartRiskResult(
+            output.PredictedLabel,
+            (float)Math.Round(probability, 4),
+            (float)Math.Round(output.Score, 4),
+            level,
+            RecommendationFor(level),
+            MainFactorsFromMetadata(5));
+    }
+
+    // Validates a clinical record before prediction. Returns an error message in
+    // Albanian when a value is physiologically impossible, otherwise null.
+    public static string? ValidateInput(HeartModelInput i)
+    {
+        if (i is null) return "Të dhënat e hyrjes mungojnë.";
+        if (i.Age < 0 || i.Age > 130) return "Mosha duhet të jetë mes 0 dhe 130.";
+        if (i.Cholesterol < 0) return "Kolesteroli nuk mund të jetë negativ.";
+        if (i.HeartRate < 0 || i.HeartRate > 300) return "Pulsi duhet të jetë mes 0 dhe 300 BPM.";
+        if (i.Systolic < 0 || i.Diastolic < 0) return "Tensioni i gjakut nuk mund të jetë negativ.";
+        if (i.Bmi < 0) return "BMI nuk mund të jetë negativ.";
+        if (i.Triglycerides < 0) return "Trigliceridet nuk mund të jenë negative.";
+        if (i.ExerciseHoursPerWeek < 0 || i.SedentaryHoursPerDay < 0 || i.SleepHoursPerDay < 0)
+            return "Orët (ushtrim/sedentare/gjumë) nuk mund të jenë negative.";
+        if (i.StressLevel < 0) return "Niveli i stresit nuk mund të jetë negativ.";
+        return null;
+    }
+
+    public static string RiskLevelFor(double probability) =>
+        probability >= HighRiskThreshold ? HighRisk
+        : probability >= MediumRiskThreshold ? MediumRisk
+        : LowRisk;
+
+    private static string RecommendationFor(string level) => level switch
+    {
+        HighRisk => "Risk i lartë i mundshëm. Rekomandohet kontroll mjekësor dhe monitorim i afërt.",
+        MediumRisk => "Vërehen disa faktorë risku. Rekomandohet monitorim më i kujdesshëm.",
+        _ => "Gjendja duket stabile, vazhdo monitorimin e rregullt."
+    };
+
+    // Reads the most important global factors from model-metrics.json (topFactors).
+    // Returns an empty list when the metadata file is missing.
+    public List<string> MainFactorsFromMetadata(int take)
+    {
+        var factors = new List<string>();
+        if (Metadata is null) return factors;
+
+        try
+        {
+            if (Metadata.RootElement.TryGetProperty("topFactors", out var top) && top.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in top.EnumerateArray())
+                {
+                    if (item.TryGetProperty("factor", out var f) && f.GetString() is { } name)
+                    {
+                        factors.Add(name);
+                    }
+
+                    if (factors.Count >= take) break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read topFactors from model metadata.");
+        }
+
+        return factors;
     }
 
     private static List<string> BuildTopFactors(PatientProfileDto p, int hr, int systolic, int diastolic)

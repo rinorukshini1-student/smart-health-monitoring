@@ -52,7 +52,7 @@ const freq = computed(() => ({
         <apexchart v-if="data.alertFrequencyByType.length" type="bar" height="300" :options="freq.options" :series="freq.series" />
         <div v-else class="empty">Ende pa alarme…</div>
       </Panel>
-      <Panel title="Pacientët me Rrezik më të Lartë" hint="rezultati i bazuar në rregulla">
+      <Panel title="Pacientët me Rrezik më të Lartë" >
         <table>
           <thead><tr><th>Pacienti</th><th>Dhoma</th><th>Rezultati</th><th>Kategoria</th></tr></thead>
           <tbody>

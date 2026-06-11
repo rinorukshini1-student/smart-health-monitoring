@@ -1,10 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../services/api'
+import { ensureHubStarted, subscribeMlPrediction } from '../services/realtimeHub'
 import Panel from '../components/Panel.vue'
 import { clockTime, riskClass, riskColor, pct } from '../utils/format'
-import { translateRiskCategory, translateRiskCategoryLong } from '../utils/i18n'
+import { translateRiskCategory, translateRiskCategoryLong, translateModelFactor } from '../utils/i18n'
+import { usePatientRisk, buildHeartRecord } from '../composables/useAi'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +25,8 @@ const ranges = [
 
 const currentId = computed(() => route.params.id || patients.value[0]?.patientId)
 
+const { result: aiResult, loading: aiLoading, error: aiError, predict } = usePatientRisk()
+
 async function loadRoster() {
   patients.value = await api.patients()
   if (!route.params.id && patients.value.length) router.replace(`/patients/${patients.value[0].patientId}`)
@@ -39,10 +43,34 @@ async function loadPatient() {
       api.aiHistory(id).catch(() => [])
     ])
     detail.value = d; profile.value = p; ml.value = m; mlHistory.value = h
+
+    // On-demand AI prediction (probability + risk level + recommendation + factors).
+    if (p) {
+      await predict(buildHeartRecord(p, null, d))
+    }
   } catch (e) { /* keep last */ }
 }
 
-onMounted(loadRoster)
+// Probability shown in the AI card: prefer the on-demand result, fall back to the worker prediction.
+const aiProbability = computed(() => aiResult.value?.probability ?? ml.value?.riskProbability ?? null)
+const aiRiskLevel = computed(() => aiResult.value?.riskLevel ?? ml.value?.riskCategory ?? null)
+const aiFactors = computed(() => {
+  const factors = aiResult.value?.mainFactors?.length ? aiResult.value.mainFactors : (ml.value?.topFactors ?? [])
+  return factors.length ? factors : ruleFactors.value
+})
+
+function onMlPrediction(p) {
+  if (p.patientId === currentId.value) ml.value = p
+}
+
+let unsubMl = null
+
+onMounted(async () => {
+  loadRoster()
+  await ensureHubStarted()
+  unsubMl = subscribeMlPrediction(onMlPrediction)
+})
+onUnmounted(() => unsubMl?.())
 watch([currentId, range], loadPatient, { immediate: true })
 
 const labels = computed(() => (detail.value?.timestamps ?? []).map(clockTime))
@@ -105,12 +133,15 @@ const ruleFactors = computed(() => (detail.value?.riskFactors ?? '').split(';').
       <Panel title="Rreziku AI i Infarktit" hint="ML.NET" style="grid-column: span 2;">
         <div class="grid cols-2" style="gap:18px;">
           <div>
+            <div v-if="aiLoading" class="empty">Duke llogaritur vlerësimin AI…</div>
+            <div v-else-if="aiError" class="ai-error">{{ aiError }}</div>
+
             <div style="display:flex;align-items:center;gap:18px;">
               <div style="text-align:center;">
-                <div style="font-size:46px;font-weight:800;" :style="{ color: riskColor(ml?.riskCategory) }">
-                  {{ ml ? pct(ml.riskProbability) : '—' }}
+                <div style="font-size:46px;font-weight:800;" :style="{ color: riskColor(aiRiskLevel) }">
+                  {{ aiProbability != null ? pct(aiProbability) : '—' }}
                 </div>
-                <span class="badge" :class="riskClass(ml?.riskCategory)">{{ ml ? translateRiskCategory(ml.riskCategory) : 'N/A' }}</span>
+                <span class="badge" :class="riskClass(aiRiskLevel)">{{ aiRiskLevel ? translateRiskCategoryLong(aiRiskLevel) : 'N/A' }}</span>
               </div>
               <div style="flex:1">
                 <div class="muted" style="font-size:13px;margin-bottom:8px;">Rezultati paralajmërues i bazuar në rregulla</div>
@@ -121,12 +152,19 @@ const ruleFactors = computed(() => (detail.value?.riskFactors ?? '').split(';').
                 <span class="badge" :class="riskClass(detail.currentRiskCategory)" style="margin-top:8px;">{{ translateRiskCategoryLong(detail.currentRiskCategory) }}</span>
               </div>
             </div>
+
+            <div v-if="aiResult?.recommendation" class="ai-reco" :class="riskClass(aiRiskLevel)">
+              {{ aiResult.recommendation }}
+            </div>
+
             <div style="margin-top:16px;">
               <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Faktorët Kryesorë të Rrezikut</div>
               <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                <span v-for="(f,i) in (ml?.topFactors ?? ruleFactors)" :key="i" class="badge plain">{{ f }}</span>
+                <span v-for="(f,i) in aiFactors" :key="i" class="badge plain">{{ translateModelFactor(f) }}</span>
               </div>
             </div>
+
+            <p class="ai-disclaimer">Ky vlerësim është gjeneruar nga modeli AI dhe shërben vetëm si ndihmë analitike, jo si diagnozë mjekësore.</p>
           </div>
           <div>
             <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Historia e Parashikimeve</div>

@@ -23,6 +23,7 @@ builder.Services.AddSingleton<FirebasePushService>();
 if (dataGenEnabled)
 {
     builder.Services.AddSingleton(new HealthDataStore(PatientCatalog.Patients));
+    builder.Services.AddSingleton<SmartAlertEngine>();
     builder.Services.AddHostedService<DataGeneratorService>();
 }
 else
@@ -174,6 +175,45 @@ app.MapGet("/api/ai/metrics", (HeartAttackPredictionService svc) =>
     svc.Metadata is not null
         ? Results.Json(svc.Metadata.RootElement.Clone())
         : Results.Json(new { chosenModel = svc.ChosenModel, modelLoaded = svc.ModelLoaded }));
+
+// Consolidated model information: chosen model, training date, rows, positives,
+// metrics, confusion matrix, threshold and top factors (from model-metrics.json).
+app.MapGet("/api/ai/model-info", (HeartAttackPredictionService svc) =>
+    svc.Metadata is not null
+        ? Results.Json(svc.Metadata.RootElement.Clone())
+        : Results.Json(new
+        {
+            modelLoaded = svc.ModelLoaded,
+            chosenModel = svc.ChosenModel,
+            metrics = Array.Empty<object>(),
+            topFactors = Array.Empty<object>()
+        }));
+
+// On-demand heart-attack risk prediction from a full clinical record.
+app.MapPost("/api/ai/predict", (HeartModelInput input, HeartAttackPredictionService svc) =>
+{
+    if (!svc.ModelLoaded)
+    {
+        return Results.Problem(
+            detail: "Modeli AI nuk është i ngarkuar. Sigurohuni që 'AiModels/heart_attack_model.zip' ekziston.",
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    var validationError = HeartAttackPredictionService.ValidateInput(input);
+    if (validationError is not null)
+    {
+        return Results.BadRequest(new { error = validationError });
+    }
+
+    try
+    {
+        return Results.Ok(svc.PredictRisk(input));
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+    }
+});
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", dataGeneration = dataGenEnabled, timestamp = DateTimeOffset.UtcNow }));
 

@@ -54,31 +54,31 @@ const tempChart = computed(() => ({
 <template>
   <div v-if="data" class="grid" style="gap:18px;">
     <div class="grid kpis">
-      <KpiCard label="Pacientë Totalë" :value="data.totalPatients" icon="la-users" tone="blue" meta="Të regjistruar në listë" />
-      <KpiCard label="Pacientë Aktivë" :value="data.activePatients" icon="la-heartbeat" tone="green" meta="Raportuan në 2 min të fundit" />
-      <KpiCard label="Alarme Kritike" :value="data.criticalAlerts" icon="la-exclamation-triangle" tone="red" meta="" />
-      <KpiCard label="Pulsi Mesatar" :value="data.averageHeartRate + ' bpm'" icon="la-heart" tone="sky" meta="Për pacientët aktivë" />
-      <KpiCard label="Temperatura Mesatare" :value="data.averageTemperature + '°C'" icon="la-thermometer-half" tone="teal" meta="Për pacientët aktivë" />
-      <KpiCard label="SpO₂ Mesatar" :value="data.averageSpo2 + '%'" icon="la-wind" tone="blue" meta="Për pacientët aktivë" />
+      <KpiCard label="Pacientë në total" :value="data.totalPatients" icon="la-users" tone="blue" meta="Të regjistruar në listë" />
+      <KpiCard label="Pacientë aktivë" :value="data.activePatients" icon="la-heartbeat" tone="green" meta="Raportuan në 2 min të fundit" />
+      <KpiCard label="Alarme kritike" :value="data.criticalAlerts" icon="la-exclamation-triangle" tone="red" meta="" />
+      <KpiCard label="Pulsi mesatar" :value="data.averageHeartRate + ' bpm'" icon="la-heart" tone="sky" meta="Për pacientët aktivë" />
+      <KpiCard label="Temperatura mesatare" :value="data.averageTemperature + '°C'" icon="la-thermometer-half" tone="teal" meta="Për pacientët aktivë" />
+      <KpiCard label="SpO₂ mesatare" :value="data.averageSpo2 + '%'" icon="la-wind" tone="blue" meta="Për pacientët aktivë" />
     </div>
 
     <div class="grid cols-2">
-      <Panel title="Mesazhe të Përpunuara / Minutë" hint="">
+      <Panel title="Mesazhe të përpunuara / minutë" hint="">
         <apexchart type="bar" height="240" :options="msgChart.options" :series="msgChart.series" />
       </Panel>
-      <Panel title="Alarme / Orë" hint="">
+      <Panel title="Alarme / orë" hint="">
         <apexchart type="bar" height="240" :options="alertChart.options" :series="alertChart.series" />
       </Panel>
-      <Panel title="Trendi i Pulsit Mesatar">
+      <Panel title="Trendi i pulsit mesatar">
         <apexchart type="area" height="240" :options="hrChart.options" :series="hrChart.series" />
       </Panel>
-      <Panel title="Trendi i Temperaturës Mesatare">
+      <Panel title="Trendi i temperaturës mesatare">
         <apexchart type="area" height="240" :options="tempChart.options" :series="tempChart.series" />
       </Panel>
     </div>
 
     <div class="grid cols-2">
-      <Panel title="Leximet e Fundit të Sensorëve">
+      <Panel title="Leximet e fundit të sensorëve">
         <div v-if="!data.recentReadings.length" class="empty">Ende pa lexime…</div>
         <table v-else>
           <thead><tr><th>Pacienti</th><th>Dhoma</th><th>Leximi</th><th>Koha</th></tr></thead>
@@ -92,10 +92,10 @@ const tempChart = computed(() => ({
           </tbody>
         </table>
       </Panel>
-      <Panel title="Alarmet e Fundit">
+      <Panel title="Alarmet e fundit">
         <div v-if="!data.recentAlerts.length" class="empty">Ende pa alarme…</div>
         <table v-else>
-          <thead><tr><th>Pacienti</th><th>Severiteti</th><th>Mesazhi</th><th>Koha</th></tr></thead>
+          <thead><tr><th>Pacienti</th><th>Niveli i rrezikut</th><th>Mesazhi</th><th>Koha</th></tr></thead>
           <tbody>
             <tr v-for="(e, i) in data.recentAlerts" :key="i">
               <td>{{ e.patientId }}</td>
@@ -108,5 +108,5 @@ const tempChart = computed(() => ({
       </Panel>
     </div>
   </div>
-  <div v-else class="empty">Duke ngarkuar përmbledhjen…</div>
+  <div v-else class="empty">Ju lutem prisni…</div>
 </template>
