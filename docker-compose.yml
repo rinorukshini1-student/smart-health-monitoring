@@ -123,9 +123,9 @@ services:
     container_name: smart-health-streaming
     environment:
       <<: *timezone
-      # STREAMING_MODE=spark -> real Apache Spark via spark-submit (default).
-      # STREAMING_MODE=direct -> lightweight Confluent Kafka consumer fallback.
-      STREAMING_MODE: spark
+      # STREAMING_MODE=spark -> real Apache Spark via spark-submit (requires ~3 GB free RAM).
+      # STREAMING_MODE=direct -> lightweight Confluent Kafka consumer (recommended for VPS/server).
+      STREAMING_MODE: direct
       SPARK_MASTER: "local[*]"
       Spark__CheckpointDir: /tmp/spark-checkpoints
       SPARK_RESET_CHECKPOINTS: "true"
