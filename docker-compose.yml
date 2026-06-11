@@ -128,6 +128,7 @@ services:
       STREAMING_MODE: spark
       SPARK_MASTER: "local[*]"
       Spark__CheckpointDir: /tmp/spark-checkpoints
+      SPARK_RESET_CHECKPOINTS: "true"
       Kafka__BootstrapServers: kafka:29092
       Kafka__Topic: health-vitals
       Cassandra__ContactPoint: cassandra

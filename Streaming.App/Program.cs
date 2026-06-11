@@ -81,6 +81,8 @@ var rawKafka = spark
     .Option("kafka.bootstrap.servers", kafka.BootstrapServers)
     .Option("subscribe", kafka.Topic)
     .Option("startingOffsets", "latest")
+    // After Kafka restarts, checkpointed offsets may no longer exist — keep streaming alive.
+    .Option("failOnDataLoss", "false")
     .Load();
 
 var vitals = rawKafka
@@ -212,12 +214,12 @@ static async Task StoreWindowBatchAsync(DataFrame batch, CassandraHealthReposito
     foreach (var row in batch.Collect())
     {
         var window = row.GetAs<Row>("window");
-        var windowStart = window.GetAs<DateTime>("start");
+        var windowStart = SparkRowReader.ReadTimestamp(window, "start");
 
         var aggregate = new WindowAggregate(
             row.GetAs<string>("patientId"),
             row.GetAs<string>("roomNumber"),
-            new DateTimeOffset(DateTime.SpecifyKind(windowStart, DateTimeKind.Utc)),
+            windowStart,
             row.GetAs<double>("avg_heart_rate"),
             row.GetAs<double>("avg_spo2"),
             row.GetAs<double>("avg_temperature"),

@@ -1,6 +1,29 @@
 // Shared records for the Spark/Kafka streaming processor.
 // Kept in the global namespace to match the existing single-file Program.cs style.
 
+using Microsoft.Spark.Sql;
+using Microsoft.Spark.Sql.Types;
+
+public static class SparkRowReader
+{
+    public static DateTimeOffset ReadTimestamp(Row row, string column)
+    {
+        var value = row.Get(column);
+        return value switch
+        {
+            Timestamp ts => ToUtcOffset(ts.ToDateTime()),
+            DateTime dt => ToUtcOffset(dt),
+            null => DateTimeOffset.UtcNow,
+            _ when DateTimeOffset.TryParse(value.ToString(), out var parsed) => parsed.ToUniversalTime(),
+            _ => throw new InvalidCastException(
+                $"Cannot read timestamp column '{column}' from type {value.GetType().FullName}.")
+        };
+    }
+
+    private static DateTimeOffset ToUtcOffset(DateTime dt) =>
+        new(DateTime.SpecifyKind(dt, DateTimeKind.Utc));
+}
+
 public sealed record KafkaOptions
 {
     public string BootstrapServers { get; init; } = "178.105.181.143:9092";
@@ -50,9 +73,9 @@ public sealed record VitalReading(
     int PhysicalActivityDaysPerWeek = 0,
     int SleepHoursPerDay = 0)
 {
-    public static VitalReading From(Microsoft.Spark.Sql.Row row)
+    public static VitalReading From(Row row)
     {
-        var recordedAt = row.GetAs<DateTime>("recordedAt");
+        var recordedAt = SparkRowReader.ReadTimestamp(row, "recordedAt");
         return new VitalReading(
             row.GetAs<string>("patientId"),
             row.GetAs<string>("patientName"),
@@ -64,7 +87,7 @@ public sealed record VitalReading(
             row.GetAs<int>("systolicBp"),
             row.GetAs<int>("diastolicBp"),
             row.GetAs<int>("respiratoryRate"),
-            new DateTimeOffset(DateTime.SpecifyKind(recordedAt, DateTimeKind.Utc)));
+            recordedAt);
     }
 }
 

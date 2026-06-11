@@ -7,6 +7,12 @@ APP_DLL="/app/Streaming.App.dll"
 SPARK_JAR="/app/${DOTNET_SPARK_JAR:-microsoft-spark-3-2_2.12-2.1.1.jar}"
 MODE="${STREAMING_MODE:-spark}"
 SPARK_MASTER="${SPARK_MASTER:-local[*]}"
+CHECKPOINT_DIR="${Spark__CheckpointDir:-/tmp/spark-checkpoints}"
+
+if [ "${SPARK_RESET_CHECKPOINTS:-false}" = "true" ]; then
+  echo "[streaming] Resetting Spark checkpoints at ${CHECKPOINT_DIR}"
+  rm -rf "${CHECKPOINT_DIR}"/*
+fi
 
 if [ "${MODE}" = "direct" ]; then
   echo "[streaming] Mode=DIRECT (Confluent Kafka consumer, no JVM Spark)."
