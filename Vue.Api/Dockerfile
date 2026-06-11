@@ -7,6 +7,10 @@ RUN dotnet publish Vue.Api/Vue.Api.csproj -c Release -o /app/publish /p:UseAppHo
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    rm -rf /var/lib/apt/lists/*
+ENV TZ=Europe/Belgrade
 COPY --from=build /app/publish .
 ENV ASPNETCORE_URLS=http://+:5099
 EXPOSE 5099

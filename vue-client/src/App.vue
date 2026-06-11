@@ -16,7 +16,6 @@ const nav = [
   { to: '/patients', icon: 'la-user-md', label: 'Detajet e pacientit' },
     { to: '/alerts', icon: 'la-bell', label: 'Alarmet' },
   { to: '/analytics', icon: 'la-chart-line', label: 'Analitika' },
-  { to: '/ai', icon: 'la-robot', label: 'Parashikimet AI' },
   { to: '/system', icon: 'la-stethoscope', label: 'Shëndeti i sistemit' }
 ]
 
@@ -28,7 +27,6 @@ const subtitle = computed(() => ({
   'Detajet e pacientit': '',
   'Alarmet': '',
   'Analitika': '',
-  'Parashikimet AI': 'Parashikimi i rrezikut të infarktit',
   'Shëndeti i sistemit': ''
 }[title.value] ?? ''))
 

@@ -11,6 +11,7 @@ import { useRealtime } from '../stores/realtime'
 import { ensureHubStarted, subscribeVitals, subscribeAlerts } from '../services/realtimeHub'
 
 import { clockTime, classifyVitals } from '../utils/format'
+import { isMlAlert } from '../utils/alerts'
 
 
 
@@ -91,8 +92,7 @@ function onVitals(reading) {
 
 
 function onAlert(alert) {
-
-  if (alert?.alertType === 'AI_HEART_RISK') return
+  if (isMlAlert(alert)) return
 
   const exists = serverAlerts.value.some(a => a.alertId === alert.alertId)
 
@@ -156,7 +156,7 @@ const mergedAlerts = computed(() => {
 
   for (const a of [...rt.alerts, ...serverAlerts.value]) {
 
-    if (a.alertType === 'AI_HEART_RISK') continue
+    if (isMlAlert(a)) continue
 
     if (!map.has(a.alertId)) map.set(a.alertId, a)
 

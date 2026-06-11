@@ -6,6 +6,7 @@ import Panel from '../components/Panel.vue'
 import LaIcon from '../components/LaIcon.vue'
 import { severityClass, clockTime } from '../utils/format'
 import { translateSeverity, translateAlertType, filterLabels } from '../utils/i18n'
+import { excludeMlAlerts } from '../utils/alerts'
 
 const rt = useRealtime()
 const serverAlerts = ref([])
@@ -24,7 +25,9 @@ onMounted(async () => { try { serverAlerts.value = await api.alerts({ limit: 250
 
 const merged = computed(() => {
   const map = new Map()
-  for (const a of [...rt.alerts, ...serverAlerts.value]) if (!map.has(a.alertId)) map.set(a.alertId, a)
+  for (const a of excludeMlAlerts([...rt.alerts, ...serverAlerts.value])) {
+    if (!map.has(a.alertId)) map.set(a.alertId, a)
+  }
   return [...map.values()].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))
 })
 

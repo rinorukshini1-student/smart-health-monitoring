@@ -1,8 +1,12 @@
+x-timezone: &timezone
+  TZ: Europe/Belgrade
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.7.1
     container_name: smart-health-zookeeper
     environment:
+      <<: *timezone
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
@@ -16,6 +20,7 @@ services:
     ports:
       - "9092:9092"
     environment:
+      <<: *timezone
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
@@ -27,6 +32,8 @@ services:
   kafka-init:
     image: confluentinc/cp-kafka:7.7.1
     container_name: smart-health-kafka-init
+    environment:
+      <<: *timezone
     depends_on:
       - kafka
     restart: "no"
@@ -41,6 +48,7 @@ services:
     ports:
       - "9042:9042"
     environment:
+      <<: *timezone
       CASSANDRA_CLUSTER_NAME: SmartHealthCluster
       CASSANDRA_DC: datacenter1
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
@@ -64,6 +72,7 @@ services:
       - ./cassandra-schema-init.cql:/schema/cassandra-schema-init.cql:ro
       - ./docker/cassandra-init.sh:/schema/cassandra-init.sh:ro
     environment:
+      <<: *timezone
       CASSANDRA_HOST: cassandra
     restart: "no"
     entrypoint: ["/bin/bash", "/schema/cassandra-init.sh"]
@@ -76,6 +85,7 @@ services:
     ports:
       - "5099:5099"
     environment:
+      <<: *timezone
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:5099
       Cassandra__ContactPoint: cassandra
@@ -95,6 +105,8 @@ services:
       context: .
       dockerfile: vue-client/Dockerfile
     container_name: smart-health-vue-client
+    environment:
+      <<: *timezone
     ports:
       - "5173:80"
     depends_on:
@@ -108,6 +120,7 @@ services:
       dockerfile: Streaming.App/Dockerfile
     container_name: smart-health-streaming
     environment:
+      <<: *timezone
       # STREAMING_MODE=spark -> real Apache Spark via spark-submit (default).
       # STREAMING_MODE=direct -> lightweight Confluent Kafka consumer fallback.
       STREAMING_MODE: spark
@@ -136,6 +149,7 @@ services:
       dockerfile: Simulator.App/Dockerfile
     container_name: smart-health-simulator
     environment:
+      <<: *timezone
       Kafka__BootstrapServers: kafka:29092
       Kafka__Topic: health-vitals
     depends_on:

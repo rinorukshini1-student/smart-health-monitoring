@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../services/api'
-import { ensureHubStarted, subscribeVitals, subscribeRisk } from '../services/realtimeHub'
+import { ensureHubStarted, subscribeVitals } from '../services/realtimeHub'
 import Panel from '../components/Panel.vue'
 import { classifyVitals, statusClass, timeAgo } from '../utils/format'
 import { translateStatus, filterLabels } from '../utils/i18n'
@@ -14,10 +14,8 @@ const sortKey = ref('roomNumber')
 const sortDir = ref('asc')
 
 const patientVitals = ref({})
-const patientRisk = ref({})
 let pollTimer = null
 let unsubVitals = null
-let unsubRisk = null
 
 const statusFilters = [
   { key: 'all', label: filterLabels.all },
@@ -30,23 +28,16 @@ function onVitals(v) {
   patientVitals.value = { ...patientVitals.value, [v.patientId]: v }
 }
 
-function onRisk(r) {
-  patientRisk.value = { ...patientRisk.value, [r.patientId]: { score: r.score, category: r.category } }
-}
-
 function seedFromLiveRows(rows) {
   const vitals = { ...patientVitals.value }
-  const risks = { ...patientRisk.value }
   for (const r of rows) {
     vitals[r.patientId] = {
       patientId: r.patientId, patientName: r.patientName, roomNumber: r.roomNumber, age: r.age,
       heartRate: r.heartRate, spo2: r.spo2, temperature: r.temperature, systolicBp: r.systolicBp,
       diastolicBp: r.diastolicBp, respiratoryRate: r.respiratoryRate, recordedAt: r.lastUpdate
     }
-    risks[r.patientId] = { score: r.riskScore, category: r.riskCategory }
   }
   patientVitals.value = vitals
-  patientRisk.value = risks
 }
 
 async function refreshFromApi() {
@@ -58,21 +49,19 @@ async function refreshFromApi() {
 onMounted(async () => {
   await ensureHubStarted()
   unsubVitals = subscribeVitals(onVitals)
-  unsubRisk = subscribeRisk(onRisk)
   await refreshFromApi()
   pollTimer = setInterval(refreshFromApi, 3000)
 })
 
 onUnmounted(() => {
   unsubVitals?.()
-  unsubRisk?.()
   if (pollTimer) clearInterval(pollTimer)
 })
 
-const rows = computed(() => Object.values(patientVitals.value).map(v => {
-  const status = classifyVitals(v)
-  return { ...v, status, risk: patientRisk.value[v.patientId]?.score ?? 0 }
-}))
+const rows = computed(() => Object.values(patientVitals.value).map(v => ({
+  ...v,
+  status: classifyVitals(v)
+})))
 
 const filtered = computed(() => {
   let list = rows.value
@@ -130,7 +119,6 @@ function sortBy(key) {
               <th class="sortable" @click="sortBy('spo2')">SpO₂</th>
               <th>Tensioni i Gjakut</th>
               <th class="sortable" @click="sortBy('respiratoryRate')">Frymëmarrja</th>
-              <th class="sortable" @click="sortBy('risk')">Rreziku</th>
               <th class="sortable" @click="sortBy('recordedAt')">Përditësimi i Fundit</th>
               <th class="sortable" @click="sortBy('status')">Statusi</th>
             </tr>
@@ -143,11 +131,10 @@ function sortBy(key) {
               <td class="mono">{{ r.spo2 }}%</td>
               <td class="mono">{{ r.systolicBp }}/{{ r.diastolicBp }}</td>
               <td class="mono">{{ r.respiratoryRate }}</td>
-              <td class="mono">{{ r.risk }}</td>
               <td class="muted">{{ timeAgo(r.recordedAt) }}</td>
               <td><span class="badge" :class="statusClass(r.status)">{{ translateStatus(r.status) }}</span></td>
             </tr>
-            <tr v-if="!filtered.length"><td colspan="9" class="empty">Duke pritur të dhëna në kohë reale…</td></tr>
+            <tr v-if="!filtered.length"><td colspan="8" class="empty">Duke pritur të dhëna në kohë reale…</td></tr>
           </tbody>
         </table>
       </div>

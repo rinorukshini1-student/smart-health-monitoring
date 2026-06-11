@@ -8,6 +8,8 @@ ENV VITE_API_BASE_URL=
 RUN npm run build:docker
 
 FROM nginx:1.27-alpine
+RUN apk add --no-cache tzdata
+ENV TZ=Europe/Belgrade
 COPY vue-client/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/vue-client/dist /usr/share/nginx/html
 EXPOSE 80

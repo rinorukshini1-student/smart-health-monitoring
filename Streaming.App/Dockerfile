@@ -30,10 +30,11 @@ ENV SPARK_VERSION=3.2.1 \
     DEBIAN_FRONTEND=noninteractive
 ENV DOTNET_SPARK_JAR=microsoft-spark-3-2_${SCALA_PROFILE}-${DOTNET_SPARK_VERSION}.jar
 ENV PATH="${SPARK_HOME}/bin:${PATH}"
+ENV TZ=Europe/Belgrade
 
 # .NET 8 runtime (to execute the published Streaming.App.dll) + tooling.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates libicu70 procps bash && \
+    apt-get install -y --no-install-recommends curl ca-certificates libicu70 procps bash tzdata && \
     rm -rf /var/lib/apt/lists/* && \
     curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && \
     bash /tmp/dotnet-install.sh --channel 8.0 --runtime dotnet --install-dir /usr/share/dotnet && \

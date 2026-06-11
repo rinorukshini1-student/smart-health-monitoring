@@ -7,7 +7,6 @@ const routes = [
   { path: '/patients/:id?', name: 'patient', component: () => import('../views/PatientDetails.vue'), meta: { title: 'Detajet e pacientit' } },
     { path: '/alerts', name: 'alerts', component: () => import('../views/Alerts.vue'), meta: { title: 'Alarmet' } },
   { path: '/analytics', name: 'analytics', component: () => import('../views/Analytics.vue'), meta: { title: 'Analitika' } },
-  { path: '/ai', name: 'ai', component: () => import('../views/AiPredictions.vue'), meta: { title: 'Parashikimet AI' } },
   { path: '/system', name: 'system', component: () => import('../views/SystemHealth.vue'), meta: { title: 'Shëndeti i sistemit' } }
 ]
 

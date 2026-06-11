@@ -154,7 +154,9 @@ public sealed class CassandraHealthStatsRepository : IHealthStatsRepository, IAs
             var highRisk = snapshot.Count(s => s.RiskCategory == RiskScoringEngine.HighRisk || s.RiskCategory == "High Risk");
 
             var recentVitals = await ScanRecentVitalsAsync(session, TimeSpan.FromMinutes(30), 1000);
-            var recentAlerts = await ScanRecentAlertsAsync(session, TimeSpan.FromHours(24), 2000);
+            var recentAlerts = (await ScanRecentAlertsAsync(session, TimeSpan.FromHours(24), 2000))
+                .Where(a => a.AlertType != "AI_HEART_RISK")
+                .ToArray();
 
             var messagesPerMinute = recentVitals
                 .GroupBy(v => FloorMinute(v.Timestamp))
@@ -299,7 +301,11 @@ public sealed class CassandraHealthStatsRepository : IHealthStatsRepository, IAs
         try
         {
             var session = await _session.Value;
-            var alerts = await ScanRecentAlertsAsync(session, TimeSpan.FromHours(24), 4000);
+            var alerts = (await ScanRecentAlertsAsync(session, TimeSpan.FromHours(24), 4000)).ToList();
+            if (!string.Equals(type, "AI_HEART_RISK", StringComparison.OrdinalIgnoreCase))
+            {
+                alerts = alerts.Where(a => a.AlertType != "AI_HEART_RISK").ToList();
+            }
 
             IEnumerable<AlertSample> filtered = alerts;
             if (!string.IsNullOrWhiteSpace(severity))

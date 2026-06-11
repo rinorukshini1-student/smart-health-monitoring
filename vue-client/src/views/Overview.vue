@@ -49,6 +49,7 @@ const tempChart = computed(() => ({
   options: baseLine((data.value?.temperatureTrend ?? []).map(p => p.label), '#0d9488'),
   series: [{ name: 'Temp mesatare', data: (data.value?.temperatureTrend ?? []).map(p => p.value) }]
 }))
+const recentAlerts = computed(() => data.value?.recentAlerts ?? [])
 </script>
 
 <template>
@@ -93,11 +94,11 @@ const tempChart = computed(() => ({
         </table>
       </Panel>
       <Panel title="Alarmet e fundit">
-        <div v-if="!data.recentAlerts.length" class="empty">Ende pa alarme…</div>
+        <div v-if="!recentAlerts.length" class="empty">Ende pa alarme…</div>
         <table v-else>
           <thead><tr><th>Pacienti</th><th>Niveli i rrezikut</th><th>Mesazhi</th><th>Koha</th></tr></thead>
           <tbody>
-            <tr v-for="(e, i) in data.recentAlerts" :key="i">
+            <tr v-for="(e, i) in recentAlerts" :key="i">
               <td>{{ e.patientId }}</td>
               <td><span class="badge" :class="severityClass(e.severity)">{{ translateSeverity(e.severity) }}</span></td>
               <td class="muted">{{ e.text }}</td>

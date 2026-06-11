@@ -1,6 +1,6 @@
 {
   "chosenModel": "Gradient Boosting",
-  "trainedAt": "2026-06-11T11:34:13.1615881+00:00",
+  "trainedAt": "2026-06-11T13:43:46.6831756+00:00",
   "rows": 8763,
   "positives": 3139,
   "selectionMetric": "F1Score",
