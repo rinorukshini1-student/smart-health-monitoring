@@ -201,7 +201,7 @@ git clone <url-e-repo-së>
 cd smart-health-monitoring
 ```
 
-### 2. Nis sistemin e plotë me Docker (rekomanduar për mbrojtje)
+### 2. Nis sistemin e plotë me Docker 
 
 ```powershell
 docker compose up -d --build
@@ -312,7 +312,7 @@ Modeli ruhet në `Vue.Api/AiModels/heart_attack_model.zip`.
 
 ---
 
-## Rrjedha e të dhënave (hap pas hapi)
+## Rrjedha e të dhënave 
 
 ```
 1. Simulator.App/Worker.cs
