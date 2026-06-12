@@ -36,13 +36,13 @@ Arton Gërguri
 
 **Smart Health Monitoring** është një sistem IoT i plotë për monitorimin e vitalëve të pacientëve në një mjedis spitalor. Projekti është zhvilluar në kuadër të lëndës *Internet of Things* dhe përmbush kërkesat e **Projektit 2 – Ndërtimi i një sistemi IoT** (Universiteti i Prishtinës, FIEK, 2026).
 
-Sistemi mbledh të dhëna nga sensorë të simuluar, i transmeton përmes **Apache Kafka**, i përpunon në kohë reale me **Apache Spark Structured Streaming**, i ruan në **Apache Cassandra** dhe i vizualizon përmes një ndërfaqeje moderne **Vue 3** të lidhur me backend-in **Vue.Api**.
+Sistemi mbledh të dhëna nga sensorë të simuluar, i transmeton përmes **Apache Kafka**, i përpunon në kohë reale me **Apache Spark Structured Streaming**, i ruan në **Apache Cassandra** dhe i vizualizon përmes një ndërfaqeje **Vue 3** të lidhur me backend-in **Vue.Api**.
 
 Përveç kërkesave bazë të projektit, janë implementuar edhe komponentët e avancuar:
 
-- **Inteligjenca Artificiale** — parashikimi i rrezikut të infarktit me ML.NET
-- **Sistemi i alarmeve** — motor inteligjent me cooldown dhe persistencë
-- **Analiza e performancës** — metrika të pipeline-it në kohë reale
+- **Inteligjenca Artificiale**: parashikimi i rrezikut të infarktit me ML.NET
+- **Sistemi i alarmeve**: motor inteligjent me cooldown dhe persistencë
+- **Analiza e performancës**: metrika të pipeline-it në kohë reale
 
 > **Shënim:** Ndërfaqja aktive e projektit është `vue-client` (Vue 3). Versioni i vjetër `Web.Dashboard` (Razor Pages) nuk përdoret në këtë implementim final.
 
@@ -57,7 +57,7 @@ Qëllimi i projektit është të demonstrohet një pipeline IoT i plotë, nga mb
 3. Të dhënat përpunohen në kohë reale për të gjeneruar **alarme**, **agregime** dhe **parashikime AI**
 4. Mjeku/stafi shikon gjendjen e pacientëve në një dashboard web me përditësime live
 
-Ky qasje pasqyron skenarin real të një spitali smart, ku sensorët IoT, përpunimi i stream-it dhe vizualizimi punojnë së bashku.
+Të dhënat kalojnë nga simulatori te Kafka, përpunohen me Spark, ruhen në Cassandra dhe shfaqen në dashboard-in Vue, të gjitha në kohë reale.
 
 ---
 
@@ -80,16 +80,16 @@ Ky qasje pasqyron skenarin real të një spitali smart, ku sensorët IoT, përpu
   <img src="assets/architecture.png" alt="Diagrami i arkitekturës Smart Health Monitoring" width="900"/>
 </p>
 
-### Si arrihet çdo kërkesë e projektit (PDF)
+### Si arrihet çdo kërkesë e projektit
 
-| Hapi (PDF) | Implementimi në projekt | Skedari / komponenti |
+| Hapi  | Implementimi në projekt | Skedari / komponenti |
 |------------|-------------------------|----------------------|
-| **1. Zgjedhja e domenit** | Smart Health Monitoring — 10 pacientë, dhoma 101–110 | `Simulator.App/Worker.cs` |
+| **1. Zgjedhja e domenit** | Smart Health Monitoring (10 pacientë, dhoma 101–110) | `Simulator.App/Worker.cs` |
 | **2. Mbledhja e të dhënave** | Simulator që gjeneron lexime çdo ~2 sekonda | `Simulator.App/` |
 | **3. Transmetimi (Kafka)** | Producer → topic `health-vitals` (3 partitions) | `docker-compose.yml`, `Simulator.App` |
 | **4. Përpunimi (Spark)** | Filtrim, validim, dritare rrëshqitëse 5 min / slide 1 min | `Streaming.App/Program.cs` |
 | **5. Ruajtja (Cassandra)** | Keyspace `smart_health`, 6 tabela | `cassandra-schema.cql` |
-| **6. Vizualizimi** | Dashboard Vue 3 me 8 faqe funksionale | `vue-client/`, `Vue.Api/` |
+| **6. Vizualizimi** | Dashboard Vue 3 me 7 faqe funksionale | `vue-client/`, `Vue.Api/` |
 | **7. AI (avancuar)** | ML.NET + RiskScoringEngine | `AI.Training/`, `Vue.Api/Ai/` |
 | **8. Alarme (avancuar)** | SmartAlertEngine me cooldown | `Streaming.App/SmartAlertEngine.cs` |
 | **9. Performancë (avancuar)** | MetricsCollector + System Health | `Streaming.App/MetricsCollector.cs` |
@@ -140,10 +140,9 @@ smart-health-monitoring/
 | `/` | Dashboard | KPI, trende, alarmet e fundit |
 | `/live` | Monitorimi live | Tabela e vitalëve me status Critical/Warning/Normal |
 | `/rooms` | Dhomat | Pamje sipas dhomave 101–110 |
-| `/patients/:id` | Detajet | Grafikë historik, statistika, AI për pacientin |
+| `/patients/:id` | Detajet | Grafikë historik, statistika dhe rreziku AI (ML.NET) për pacientin |
 | `/alerts` | Alarmet | Regjistri i alarmeve në kohë reale |
 | `/analytics` | Analitika | Agregimet nga dritaret Spark |
-| `/ai` | Parashikimet AI | Rreziku ML.NET i infarktit |
 | `/system` | Shëndeti i sistemit | Metrikat e Kafka, Spark, Cassandra, API |
 
 ---
@@ -151,26 +150,39 @@ smart-health-monitoring/
 ## Pamje të ndërfaqes
 
 <p align="center">
-  <img src="assets/screenshots/01-overview.png" alt="Dashboard kryesor" width="800"/>
-  <br><em>Figura 1 — Dashboard kryesor (Overview)</em>
+  <img src="assets/01-dashboard.png" alt="Dashboard kryesor" width="800"/>
+  <br><em>Figura 1: Dashboard kryesor me KPI dhe trendet</em>
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/02-rooms.png" alt="Pamja e dhomave" width="800"/>
-  <br><em>Figura 2 — Monitorimi sipas dhomave (Rooms)</em>
+  <img src="assets/02-live.png" alt="Monitorimi në kohë reale" width="800"/>
+  <br><em>Figura 2: Monitorimi në kohë reale i vitalëve</em>
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/03-alerts.png" alt="Regjistri i alarmeve" width="800"/>
-  <br><em>Figura 3 — Qendra e alarmeve (Alerts)</em>
+  <img src="assets/03-rooms.png" alt="Pamja e dhomave" width="800"/>
+  <br><em>Figura 3: Monitorimi sipas dhomave 101–110</em>
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/04-ai.png" alt="Parashikimet AI" width="800"/>
-  <br><em>Figura 4 — Parashikimet e rrezikut me ML.NET (AI)</em>
+  <img src="assets/04-patient-details.png" alt="Detajet e pacientit" width="800"/>
+  <br><em>Figura 4: Detajet e pacientit me rrezikun AI (ML.NET)</em>
 </p>
 
-> Për mbrojtje, rekomandohet të zëvendësoni pamjet me screenshot-e reale nga `http://localhost:5173` pas nisjes së sistemit.
+<p align="center">
+  <img src="assets/05-alerts.png" alt="Qendra e alarmeve" width="800"/>
+  <br><em>Figura 5: Qendra e alarmeve në kohë reale</em>
+</p>
+
+<p align="center">
+  <img src="assets/06-analytics.png" alt="Analitika" width="800"/>
+  <br><em>Figura 6: Analitika nga dritaret 5-minutëshe të Spark</em>
+</p>
+
+<p align="center">
+  <img src="assets/07-system.png" alt="Shëndeti i sistemit" width="800"/>
+  <br><em>Figura 7: Shëndeti i sistemit (Kafka, Spark, Cassandra, API)</em>
+</p>
 
 ---
 
@@ -249,13 +261,13 @@ docker compose down -v
 
 Për zhvillim lokal, komponentët mund të nisen veç e veç. Renditja e rëndësishme:
 
-### Hapi 1 — Infrastruktura
+### Hapi 1: Infrastruktura
 
 ```powershell
 docker compose up -d zookeeper kafka kafka-init cassandra cassandra-init
 ```
 
-### Hapi 2 — Vue.Api
+### Hapi 2: Vue.Api
 
 ```powershell
 dotnet run --project Vue.Api
@@ -263,7 +275,7 @@ dotnet run --project Vue.Api
 
 > Konfiguro `Cassandra__ContactPoint=localhost` dhe `DataGeneration__Enabled=false` në `appsettings.Development.json`.
 
-### Hapi 3 — vue-client
+### Hapi 3: vue-client
 
 ```powershell
 cd vue-client
@@ -273,7 +285,7 @@ npm run dev
 
 Hap: **http://localhost:5173**
 
-### Hapi 4 — Streaming.App
+### Hapi 4: Streaming.App
 
 ```powershell
 # Mënyra Spark (kërkon Java + spark-submit)
@@ -284,13 +296,13 @@ $env:STREAMING_MODE="direct"
 dotnet run --project Streaming.App
 ```
 
-### Hapi 5 — Simulator.App
+### Hapi 5: Simulator.App
 
 ```powershell
 dotnet run --project Simulator.App
 ```
 
-### Hapi 6 (opsionale) — Trajnimi i modelit AI
+### Hapi 6 (opsionale): Trajnimi i modelit AI
 
 ```powershell
 dotnet run --project AI.Training
@@ -345,11 +357,11 @@ Modeli ruhet në `Vue.Api/AiModels/heart_attack_model.zip`.
 
 ### Sistemi i alarmeve
 
-`SmartAlertEngine` nuk alarmon për çdo lexim — përdor:
+`SmartAlertEngine` nuk alarmon për çdo lexim, por përdor:
 
 - **Cooldown** 5 minuta për të njëjtin lloj alarmi
-- **Persistencë** — vlera duhet të qëndrojë jashtë normës për disa sekonda/minuta
-- **Stabilizim** — mesazh INFO kur pacienti kthehet në normale
+- **Persistencë**: vlera duhet të qëndrojë jashtë normës për disa sekonda/minuta
+- **Stabilizim**: mesazh INFO kur pacienti kthehet në normale
 
 ### Analiza e performancës
 
@@ -362,13 +374,50 @@ Modeli ruhet në `Vue.Api/AiModels/heart_attack_model.zip`.
 | Shtresa | Teknologjia |
 |---------|-------------|
 | Simulator | .NET 8 Worker Service |
-| Message Broker | Apache Kafka 7.7 |
+| Message Broker | Confluent Platform 7.7 (Apache Kafka 3.7) |
 | Stream Processing | Apache Spark 3.2 (Microsoft.Spark) |
 | Database | Apache Cassandra 4.1 |
 | Backend API | ASP.NET Core 8, SignalR |
 | Frontend | Vue 3, Pinia, Vue Router, ApexCharts |
 | AI / ML | ML.NET (FastTree), Risk Scoring |
 | Kontejnerizimi | Docker, Docker Compose |
+
+---
+
+## Sfidat dhe mësimet e nxjerra
+
+Gjatë ndërtimit të sistemit u hasën disa sfida teknike, trajtimi i të cilave përbën edhe mësimet kryesore të projektit.
+
+| Sfida | Si u trajtua |
+|-------|--------------|
+| Garancia e moshumbjes së të dhënave nga Kafka | Përdorimi i checkpoint-eve për ruajtjen e offset-eve dhe rifillimin pa humbje pas restartit |
+| Të dhëna jashtë rendit në agregime | Përdorimi i watermark-ut me dritare rrëshqitëse 5-minutëshe për tolerimin e vonesave |
+| Tepricë alarmesh (alert fatigue) | Logjika me cooldown dhe persistencë në `SmartAlertEngine`, jo një alarm për çdo lexim |
+| Komunikimi në kohë reale me ndërfaqen | Lidhja e `Streaming.App` si klient SignalR te hub-i i `Vue.Api` |
+
+Mësimet kryesore: decoupling-u me Kafka e bën sistemin më të qëndrueshëm dhe të zgjerueshëm. Përpunimi në kohë reale kërkon balancim midis saktësisë dhe vonesës.
+
+---
+
+## Përfundime dhe Rekomandime
+
+Projekti realizon një pipeline IoT funksional nga fillimi në fund, duke përmbushur të gjitha kërkesat teknike: mbledhja e të dhënave nga sensorë të simuluar, transmetimi përmes Apache Kafka, përpunimi në kohë reale me Apache Spark Structured Streaming, ruajtja në Apache Cassandra dhe vizualizimi në një ndërfaqe Vue 3. Përveç kërkesave bazë, janë integruar edhe tri komponentët e avancuar: inteligjenca artificiale, sistemi i alarmeve dhe analiza e performancës.
+
+Bazuar në përvojën e zhvillimit, rekomandohet:
+
+- Përdorimi i Apache Kafka si shtresë qendrore e transmetimit në çdo sistem IoT me volum të lartë të dhënash, për shkak të decoupling-ut dhe buffering-ut.
+- Projektimi i skemës së Cassandra-s sipas modelit të pyetjeve, për të arritur performancë optimale të leximit.
+
+---
+
+## Puna e ardhshme
+
+Sistemi mund të zgjerohet më tej me drejtimet e mëposhtme:
+
+- Zëvendësimi i simulatorit me sensorë fizikë realë, p.sh. përmes protokollit MQTT.
+- Shtimi i autentikimit dhe autorizimit me role për stafin mjekësor.
+- Ritrajnimi i modelit të AI me një dataset klinik më të pasur dhe më të balancuar.
+- Politika ruajtjeje afatgjatë me TTL dhe arkivim të të dhënave historike.
 
 ---
 
@@ -384,6 +433,6 @@ Modeli ruhet në `Vue.Api/AiModels/heart_attack_model.zip`.
 
 <div align="center">
 
-*Smart Health Monitoring — Projekti IoT, Grupi 2*
+*Smart Health Monitoring · Projekti IoT, Grupi 2*
 
 </div>
