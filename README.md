@@ -151,7 +151,7 @@ smart-health-monitoring/
 
 <p align="center">
   <img src="assets/01-dashboard.png" alt="Dashboard kryesor" width="800"/>
-  <br><em>Figura 1: Dashboard kryesor me KPI dhe trendet</em>
+  <br><em>Figura 1: Dashboard </em>
 </p>
 
 <p align="center">
@@ -416,7 +416,7 @@ Sistemi mund të zgjerohet më tej me drejtimet e mëposhtme:
 
 - Zëvendësimi i simulatorit me sensorë fizikë realë, p.sh. përmes protokollit MQTT.
 - Shtimi i autentikimit dhe autorizimit me role për stafin mjekësor.
-- Ritrajnimi i modelit të AI me një dataset klinik më të pasur dhe më të balancuar.
+- Ritrajnimi i modelit të AI me një dataset klinik më të pasur.
 - Politika ruajtjeje afatgjatë me TTL dhe arkivim të të dhënave historike.
 
 ---
